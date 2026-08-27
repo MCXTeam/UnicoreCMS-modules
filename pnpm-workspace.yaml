@@ -1,0 +1,9 @@
+packages:
+  - '*'
+
+nodeLinker: hoisted
+engineStrict: true
+
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
