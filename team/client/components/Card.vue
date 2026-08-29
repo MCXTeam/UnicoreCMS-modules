@@ -1,5 +1,5 @@
 <template>
-  <div class="team-card">
+  <NuxtLink :to="`/user/${member.username}`" class="team-card">
     <div class="team-card__face">
       <SkinView2D :width="48" :height="48" :skin="member.skin || undefined" />
     </div>
@@ -8,7 +8,7 @@
       <span v-if="member.label" class="team-card__label" :style="labelStyle">{{ member.label }}</span>
       <p v-if="member.note?.text" class="team-card__note">{{ member.note.text }}</p>
     </div>
-  </div>
+  </NuxtLink>
 </template>
 
 <script setup lang="ts">
@@ -34,6 +34,7 @@ const labelStyle = computed(() => (props.member.color ? { color: props.member.co
   border-radius: 16px;
   background: rgba(var(--vs-text), 0.04);
   transition: background 160ms;
+  color: inherit;
 }
 .team-card:hover {
   background: rgba(var(--vs-text), 0.07);
