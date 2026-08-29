@@ -1,12 +1,14 @@
 import { defineModule } from 'unicore-api/server'
 import { TeamNote } from './entities/note.entity'
+import { TeamCategory } from './entities/category.entity'
+import { TeamMemberCategory } from './entities/member-category.entity'
 import { TeamModule } from './team.module'
 import ru from '../locales/ru.json'
 import en from '../locales/en.json'
 
 export default defineModule({
   id: 'team',
-  entities: [TeamNote],
+  entities: [TeamNote, TeamCategory, TeamMemberCategory],
   nestModules: [TeamModule],
   permissions: ['mod.team.read', 'mod.team.write'],
   config: [

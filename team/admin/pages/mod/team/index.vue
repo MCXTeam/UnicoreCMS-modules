@@ -28,6 +28,12 @@
               <span :style="data.color && { color: data.color }">{{ data.label }}</span>
             </template>
           </Column>
+          <Column :header="$t('mod.team.member_categories')">
+            <template #body="{ data }">
+              <span v-if="(memberCategoryIds[data.uuid] || []).length">{{ categoryNames(data.uuid) }}</span>
+              <span v-else class="text-color-secondary">—</span>
+            </template>
+          </Column>
           <Column :header="$t('mod.team.member_note')">
             <template #body="{ data }">
               <span v-if="data.note?.text">{{ data.note.text }}</span>
@@ -66,6 +72,18 @@
               </label>
               <Textarea v-model="note.text" :autoResize="true" rows="3" />
             </div>
+            <div class="field" v-if="categories.length">
+              <label>{{ $t('mod.team.member_categories') }}</label>
+              <MultiSelect
+                v-model="note.categories"
+                :options="categories"
+                optionLabel="name"
+                optionValue="id"
+                placeholder="—"
+                :maxSelectedLabels="3"
+                class="w-full"
+              />
+            </div>
           </template>
           <template #translations>
             <ContentTranslationFields :translations="translations" />
@@ -75,6 +93,64 @@
             <Button :label="$t('common.save')" icon="pi pi-check" class="p-button-text" :disabled="loading" @click="saveNote()" />
           </template>
         </SectionedDialog>
+      </div>
+
+      <div class="col-12">
+        <div class="card">
+          <div class="flex flex-column md:flex-row md:justify-content-between md:align-items-center gap-2 mb-3">
+            <h5 class="m-0 flex align-items-center gap-1">
+              {{ $t('mod.team.categories') }}
+              <i v-tooltip.right="$t('mod.team.categories_hint')" class="pi pi-question-circle text-color-secondary" />
+            </h5>
+            <div class="flex gap-2">
+              <InputText v-model="newCategory.name" :placeholder="$t('mod.team.category_name')" :disabled="!canWrite" />
+              <InputNumber v-model="newCategory.position" :placeholder="$t('mod.team.category_position')" :disabled="!canWrite" class="w-8rem" />
+              <Button
+                :label="$t('mod.team.category_add')"
+                icon="pi pi-plus"
+                :disabled="!canWrite || !newCategory.name"
+                @click="addCategory()"
+              />
+            </div>
+          </div>
+          <DataTable :value="categories" :loading="categoriesLoading" responsiveLayout="scroll" dataKey="id">
+            <template #empty>
+              <div class="py-3 text-center text-color-secondary">{{ $t('mod.team.categories_empty') }}</div>
+            </template>
+            <Column field="position" :header="$t('mod.team.category_position')" :style="{ width: '8rem' }">
+              <template #body="{ data }">
+                <InputNumber
+                  :modelValue="data.position"
+                  @update:modelValue="(value) => saveCategory(data, value)"
+                  :disabled="!canWrite"
+                  inputClass="w-6rem"
+                  :min="0"
+                />
+              </template>
+            </Column>
+            <Column field="name" :header="$t('mod.team.category_name')">
+              <template #body="{ data }">
+                <InputText
+                  :modelValue="data.name"
+                  :disabled="!canWrite"
+                  class="w-full"
+                  @update:modelValue="(value) => (data.name = value)"
+                  @change="saveCategory(data)"
+                />
+              </template>
+            </Column>
+            <Column :style="{ width: '5rem' }" :bodyStyle="{ 'text-align': 'right' }">
+              <template #body="{ data }">
+                <Button
+                  icon="pi pi-trash"
+                  class="p-button-rounded p-button-danger"
+                  :disabled="!canWrite"
+                  @click="removeCategory(data)"
+                />
+              </template>
+            </Column>
+          </DataTable>
+        </div>
       </div>
     </div>
   </div>
@@ -104,7 +180,11 @@ export default {
       noteDialog: false,
       section: 'main',
       note: { uuid: null, text: null },
-    }
+      memberCategoryIds: {},
+      categories: [],
+      categoriesLoading: false,
+      newCategory: { name: '', position: null },
+      memberCategoryIds: {},
   },
   computed: {
     sections() {
@@ -119,12 +199,24 @@ export default {
   },
   methods: {
     async load() {
+      this.loadCategories()
       this.loading = true
       this.noteDialog = false
       this.members = await this.$api
         .get('/mod/team/members')
         .then((res) => res.data)
         .catch(() => [])
+
+      const pairs = await Promise.all(
+        this.members.map((member) =>
+          this.$api
+            .get(`/mod/team/members/${member.uuid}/categories`, { silent: true })
+            .then((res) => [member.uuid, res.data])
+            .catch(() => [member.uuid, []]),
+        ),
+      )
+      this.memberCategoryIds = Object.fromEntries(pairs)
+
       this.loading = false
     },
     async openNote(member) {
@@ -132,6 +224,10 @@ export default {
       this.note = { uuid: member.uuid, text: member.note?.text || null }
       this.translations.attach(this.note)
       await this.translations.load(member.uuid)
+      this.note.categories = await this.$api
+        .get(`/mod/team/members/${member.uuid}/categories`, { silent: true })
+        .then((res) => res.data)
+        .catch(() => [])
       this.noteDialog = true
     },
     async saveNote() {
@@ -141,6 +237,14 @@ export default {
         .patch(`/mod/team/members/${this.note.uuid}`, { text: this.note.text || undefined })
         .then(() => true)
         .catch(() => false)
+
+      if (ok) {
+        await this.$api
+          .put(`/mod/team/members/${this.note.uuid}/categories`, { categories: this.note.categories || [] })
+          .catch(() => {})
+
+        await this.load()
+      }
 
       if (!ok) {
         this.loading = false

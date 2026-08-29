@@ -5,6 +5,9 @@ import { core } from 'unicore-api'
 import type { ServerRecord, StaffMember } from 'unicore-api'
 import { TeamNoteInput } from './dto/note.input'
 import { TeamNote } from './entities/note.entity'
+import { TeamCategory } from './entities/category.entity'
+import { TeamMemberCategory } from './entities/member-category.entity'
+import { CategoryInput } from './dto/category.input'
 
 export interface TeamCard {
   uuid: string
@@ -22,11 +25,84 @@ export interface TeamSection {
   members: TeamCard[]
 }
 
+export interface TeamCategoryRow {
+  id: number
+  name: string
+  position: number
+}
+
 const GLOBAL = 'global'
 
 @Injectable()
 export class TeamService {
-  constructor(@InjectRepository(TeamNote) private readonly notes: Repository<TeamNote>) {}
+  constructor(
+    @InjectRepository(TeamNote) private readonly notes: Repository<TeamNote>,
+    @InjectRepository(TeamCategory) private readonly categories: Repository<TeamCategory>,
+    @InjectRepository(TeamMemberCategory) private readonly memberCategories: Repository<TeamMemberCategory>,
+  ) {}
+
+  listCategories(): Promise<TeamCategory[]> {
+    return this.categories.find({ order: { position: 'ASC', id: 'ASC' } })
+  }
+
+  async saveCategory(id: number | null, input: CategoryInput): Promise<TeamCategory> {
+    const category = id ? await this.categories.findOneBy({ id }) : this.categories.create()
+
+    if (id && !category) throw new Error('category_not_found')
+
+    category.name = input.name
+    category.position = input.position ?? (id ? category.position : (await this.categories.count()) + 1)
+
+    return this.categories.save(category)
+  }
+
+  async removeCategory(id: number): Promise<void> {
+    await this.memberCategories.delete({ categoryId: id })
+    await this.categories.delete({ id })
+  }
+
+  memberCategoryIds(uuid: string): Promise<number[]> {
+    return this.memberCategories
+      .find({ where: { userUuid: uuid } })
+      .then((rows) => rows.map((row) => row.categoryId))
+  }
+
+  async setMemberCategories(uuid: string, ids: number[]): Promise<void> {
+    await this.memberCategories.delete({ userUuid: uuid })
+    await this.memberCategories.insert(ids.map((categoryId) => ({ userUuid: uuid, categoryId })))
+  }
+
+  async categorySections(): Promise<TeamSection[]> {
+    const [categories, members] = await Promise.all([this.listCategories(), core().staff.members()])
+
+    if (!categories.length || !members.length) return []
+
+    const links = await this.memberCategories.find()
+    const byUuid = new Map(members.map((member) => [member.uuid, member]))
+    const notes = await this.noteMap()
+    const sections = new Map<number, TeamSection>()
+
+    for (const category of categories) {
+      sections.set(category.id, { id: `category-${category.id}`, title: category.name, icon: null, members: [] })
+    }
+
+    for (const link of links) {
+      const member = byUuid.get(link.userUuid)
+      const section = sections.get(link.categoryId)
+
+      if (!member || !section) continue
+
+      section.members.push(this.card(member, notes))
+    }
+
+    for (const section of sections.values()) section.members = this.sortCards(section.members)
+
+    return sections
+  }
+
+  private sortCards(cards: TeamCard[]): TeamCard[] {
+    return cards.slice().sort((left, right) => left.username.localeCompare(right.username))
+  }
 
   async sections(globalTitle: string): Promise<TeamSection[]> {
     const members = await core().staff.members()
