@@ -97,7 +97,7 @@ export class TeamService {
 
     for (const section of sections.values()) section.members = this.sortCards(section.members)
 
-    return sections
+    return [...sections.values()]
   }
 
   private sortCards(cards: TeamCard[]): TeamCard[] {

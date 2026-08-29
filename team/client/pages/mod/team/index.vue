@@ -5,17 +5,8 @@
       <p v-if="subtitle" class="m-0">{{ subtitle }}</p>
     </div>
 
-    <div v-if="categorySections.length" class="team-mode">
-      <button class="team-mode__btn" :class="{ active: mode === 'servers' }" @click="mode = 'servers'">
-        {{ $t('mod.team.mode_servers') }}
-      </button>
-      <button class="team-mode__btn" :class="{ active: mode === 'categories' }" @click="mode = 'categories'">
-        {{ $t('mod.team.mode_categories') }}
-      </button>
-    </div>
-
     <div v-if="visibleSections.length" class="team-sections">
-      <section v-for="section in sections" :key="section.id" class="panel team-section">
+      <section v-for="section in visibleSections" :key="section.id" class="panel team-section">
         <div class="team-section__head">
           <IconAvatar v-if="section.icon" :path="section.icon" icon="bx bxs-server" />
           <h2 class="m-0">{{ section.title }}</h2>
@@ -45,11 +36,16 @@ const { data: categoryData } = await useAsyncData<any[]>(
   { default: () => [] },
 )
 
-const mode = ref<'servers' | 'categories'>('servers')
+const mode = computed(() => String(value('public_mod_team_display', 'servers') || 'servers'))
 
 const sections = computed(() => (data.value || []).filter((section: any) => section.members?.length))
 const categorySections = computed(() => (categoryData.value || []).filter((section: any) => section.members?.length))
-const visibleSections = computed(() => (mode.value === 'categories' && categorySections.value.length ? categorySections.value : sections.value))
+const visibleSections = computed(() => {
+  if (mode.value === 'categories') return categorySections.value.length ? categorySections.value : sections.value
+  if (mode.value === 'all') return [...categorySections.value, ...sections.value]
+
+  return sections.value
+})
 const title = computed(() => String(value('public_mod_team_title', '') || $t('mod.team.page_title')))
 const subtitle = computed(() => String(value('public_mod_team_subtitle', '') || ''))
 
@@ -64,28 +60,6 @@ useHead({ title })
 .team-head p {
   margin-top: 8px !important;
   color: rgba(var(--vs-text), 0.6);
-}
-.team-mode {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-.team-mode__btn {
-  padding: 6px 14px;
-  border: 1px solid rgba(var(--vs-text), 0.15);
-  border-radius: 999px;
-  background: transparent;
-  color: rgba(var(--vs-text), 0.65);
-  font: inherit;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.team-mode__btn.active {
-  border-color: rgb(var(--vs-primary));
-  color: rgb(var(--vs-primary));
-  font-weight: 600;
 }
 .team-sections {
   display: flex;
