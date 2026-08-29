@@ -117,6 +117,7 @@
   "mod.forms.op_ne": "Не равно",
   "mod.forms.open_from": "Приём с",
   "mod.forms.open_site": "Открыть на сайте",
+  "mod.forms.open_site_hint": "Адрес сайта не задан: добавьте BASEURL в окружение админки.",
   "mod.forms.open_to": "Приём по",
   "mod.forms.option_add": "Добавить вариант",
   "mod.forms.option_label": "Название",

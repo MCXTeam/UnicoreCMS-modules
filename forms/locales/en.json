@@ -117,6 +117,7 @@
   "mod.forms.op_ne": "Not equal",
   "mod.forms.open_from": "Open from",
   "mod.forms.open_site": "Open on the site",
+  "mod.forms.open_site_hint": "The site URL is not set: add BASEURL to the admin environment.",
   "mod.forms.open_to": "Open until",
   "mod.forms.option_add": "Add option",
   "mod.forms.option_label": "Label",

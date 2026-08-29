@@ -8,7 +8,21 @@
             <small class="text-color-secondary">/mod/forms/{{ form.slug }}</small>
           </div>
           <div class="flex gap-2">
-            <Button :label="$t('mod.forms.open_site')" icon="pi pi-external-link" class="p-button-text" @click="openSite()" />
+            <Button
+              v-if="site"
+              :label="$t('mod.forms.open_site')"
+              icon="pi pi-external-link"
+              class="p-button-text"
+              @click="openSite()"
+            />
+            <Button
+              v-else
+              v-tooltip.right="$t('mod.forms.open_site_hint')"
+              :label="$t('mod.forms.open_site')"
+              icon="pi pi-external-link"
+              class="p-button-text"
+              disabled
+            />
             <Button :label="$t('common.save')" icon="pi pi-check" :disabled="!canWrite || saving" @click="save()" />
           </div>
         </div>
