@@ -15,5 +15,7 @@
   "mod.demo.user_notes_text": "Блок в карточке игрока {username}",
   "perm.group.mod.demo": "Демо-модуль",
   "perm.mod.demo.read": "Смотреть заметки",
-  "perm.mod.demo.write": "Править заметки"
+  "perm.mod.demo.read.hint": "Доступ к разделу заметок демо-модуля.",
+  "perm.mod.demo.write": "Править заметки",
+  "perm.mod.demo.write.hint": "Создание и редактирование заметок."
 }

@@ -207,6 +207,7 @@
   "mod.forms.yes": "Yes",
   "perm.group.mod.forms": "Forms",
   "perm.mod.forms.read": "View submissions",
+  "perm.mod.forms.read.hint": "Access to the form builder and submissions.",
   "perm.mod.forms.review": "Review submissions",
   "perm.mod.forms.review.hint": "Changing the status and answering the author.",
   "perm.mod.forms.write": "Build forms",

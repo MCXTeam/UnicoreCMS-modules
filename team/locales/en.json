@@ -15,5 +15,7 @@
   "mod.team.page_title": "Project team",
   "mod.team.source_hint": "The team is taken from site roles and privileges marked as staff. Here you can only add a note about a person.",
   "mod.team.title": "Team",
-  "mod.team.translations": "Translations"
+  "mod.team.translations": "Translations",
+  "perm.mod.team.read.hint": "Access to the project team settings.",
+  "perm.mod.team.write.hint": "Editing member labels and notes."
 }

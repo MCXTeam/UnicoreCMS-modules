@@ -15,5 +15,7 @@
   "mod.demo.user_notes_text": "A block in the profile of {username}",
   "perm.group.mod.demo": "Demo module",
   "perm.mod.demo.read": "View notes",
-  "perm.mod.demo.write": "Edit notes"
+  "perm.mod.demo.read.hint": "Access to the demo module notes.",
+  "perm.mod.demo.write": "Edit notes",
+  "perm.mod.demo.write.hint": "Creating and editing notes."
 }

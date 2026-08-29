@@ -207,6 +207,7 @@
   "mod.forms.yes": "Да",
   "perm.group.mod.forms": "Формы",
   "perm.mod.forms.read": "Смотреть заявки",
+  "perm.mod.forms.read.hint": "Доступ к конструктору форм и заявкам.",
   "perm.mod.forms.review": "Разбирать заявки",
   "perm.mod.forms.review.hint": "Смена статуса и ответ автору заявки.",
   "perm.mod.forms.write": "Собирать формы",
