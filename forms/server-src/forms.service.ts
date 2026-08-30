@@ -145,7 +145,7 @@ export class FormsService {
       'closed_text',
       'success_text',
       'submit_label',
-      'notify_channels',
+      'notify_webhooks',
       'notify_author',
     ] as const)
       if (input[key] !== undefined) (form as unknown as Record<string, unknown>)[key] = input[key]
@@ -496,7 +496,7 @@ export class FormsService {
 
     logger.log(`Заявка №${submission.id} по форме «${form.title}» от ${submission.username || submission.ip}`)
 
-    if (!form.notify_channels?.length) return
+    if (!form.notify_webhooks?.length) return
 
     const lines = submission.answers.map((answer) => `${answer.label}: ${this.plain(answer.value)}`)
     const post = {
@@ -504,10 +504,11 @@ export class FormsService {
       description: [`Заявка от ${submission.username || 'гостя'}`, '', ...lines].join('\n'),
     }
 
-    for (const channel of form.notify_channels)
+    for (const id of form.notify_webhooks)
       await core()
-        .webhooks.send(channel, post)
-        .catch((error) => logger.error(`Уведомление в канал ${channel} не ушло`, error))
+        .webhooks.sendTo(Number(id), post)
+        .then((status) => logger.log(`Заявка №${submission.id} доставлена в вебхук ${id} (HTTP ${status})`))
+        .catch((error) => logger.error(`Уведомление в вебхук ${id} не ушло`, error))
   }
 
   private async notifyAuthor(submission: FormSubmission): Promise<void> {

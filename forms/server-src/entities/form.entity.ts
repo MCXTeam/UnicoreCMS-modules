@@ -62,8 +62,8 @@ export class Form {
   @Column({ name: 'submit_label', length: 64, nullable: true })
   submit_label: string
 
-  @Column('simple-array', { name: 'notify_channels', nullable: true })
-  notify_channels: string[]
+  @Column('simple-array', { name: 'notify_webhooks', nullable: true })
+  notify_webhooks: string[]
 
   @Column({ name: 'notify_author', default: true })
   notify_author: boolean

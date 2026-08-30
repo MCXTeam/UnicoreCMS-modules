@@ -74,7 +74,7 @@ var _Form = class _Form {
     __publicField(this, "closed_text");
     __publicField(this, "success_text");
     __publicField(this, "submit_label");
-    __publicField(this, "notify_channels");
+    __publicField(this, "notify_webhooks");
     __publicField(this, "notify_author");
     __publicField(this, "fields");
     __publicField(this, "created_at");
@@ -217,11 +217,11 @@ _ts_decorate([
 ], Form.prototype, "submit_label", void 0);
 _ts_decorate([
   (0, import_typeorm.Column)("simple-array", {
-    name: "notify_channels",
+    name: "notify_webhooks",
     nullable: true
   }),
   _ts_metadata("design:type", Array)
-], Form.prototype, "notify_channels", void 0);
+], Form.prototype, "notify_webhooks", void 0);
 _ts_decorate([
   (0, import_typeorm.Column)({
     name: "notify_author",
@@ -1840,7 +1840,7 @@ var _FormsService = class _FormsService {
       "closed_text",
       "success_text",
       "submit_label",
-      "notify_channels",
+      "notify_webhooks",
       "notify_author"
     ]) if (input[key] !== void 0) form[key] = input[key];
     await this.forms.save(form);
@@ -2238,7 +2238,7 @@ var _FormsService = class _FormsService {
   async announce(form, submission) {
     const logger = (0, import_server3.core)().logger("forms");
     logger.log(`\u0417\u0430\u044F\u0432\u043A\u0430 \u2116${submission.id} \u043F\u043E \u0444\u043E\u0440\u043C\u0435 \xAB${form.title}\xBB \u043E\u0442 ${submission.username || submission.ip}`);
-    if (!form.notify_channels?.length) return;
+    if (!form.notify_webhooks?.length) return;
     const lines = submission.answers.map((answer) => `${answer.label}: ${this.plain(answer.value)}`);
     const post = {
       title: form.title,
@@ -2248,7 +2248,7 @@ var _FormsService = class _FormsService {
         ...lines
       ].join("\n")
     };
-    for (const channel of form.notify_channels) await (0, import_server3.core)().webhooks.send(channel, post).catch((error) => logger.error(`\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435 \u0432 \u043A\u0430\u043D\u0430\u043B ${channel} \u043D\u0435 \u0443\u0448\u043B\u043E`, error));
+    for (const id of form.notify_webhooks) await (0, import_server3.core)().webhooks.sendTo(Number(id), post).then((status) => logger.log(`\u0417\u0430\u044F\u0432\u043A\u0430 \u2116${submission.id} \u0434\u043E\u0441\u0442\u0430\u0432\u043B\u0435\u043D\u0430 \u0432 \u0432\u0435\u0431\u0445\u0443\u043A ${id} (HTTP ${status})`)).catch((error) => logger.error(`\u0423\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0435 \u0432 \u0432\u0435\u0431\u0445\u0443\u043A ${id} \u043D\u0435 \u0443\u0448\u043B\u043E`, error));
   }
   async notifyAuthor(submission) {
     const logger = (0, import_server3.core)().logger("forms");
@@ -2324,8 +2324,8 @@ var _FormsAdminController = class _FormsAdminController {
       fields: fields.length
     }));
   }
-  channels() {
-    return (0, import_server4.core)().webhooks.channels();
+  webhooks() {
+    return (0, import_server4.core)().webhooks.list();
   }
   submissions(form, status, page) {
     return this.forms.inbox({
@@ -2371,11 +2371,11 @@ _ts_decorate8([
   (0, import_server4.Permissions)([
     "mod.forms.read"
   ]),
-  (0, import_common2.Get)("channels"),
+  (0, import_common2.Get)("webhooks"),
   _ts_metadata8("design:type", Function),
   _ts_metadata8("design:paramtypes", []),
   _ts_metadata8("design:returntype", void 0)
-], FormsAdminController.prototype, "channels", null);
+], FormsAdminController.prototype, "webhooks", null);
 _ts_decorate8([
   (0, import_server4.Permissions)([
     "mod.forms.read"
@@ -2828,10 +2828,10 @@ var ru_default = {
   "mod.forms.no": "\u041D\u0435\u0442",
   "mod.forms.notify_author": "\u041F\u0438\u0441\u0430\u0442\u044C \u0430\u0432\u0442\u043E\u0440\u0443 \u043E \u0440\u0435\u0448\u0435\u043D\u0438\u0438",
   "mod.forms.notify_author_hint": "\u041F\u0438\u0441\u044C\u043C\u043E \u0443\u0439\u0434\u0451\u0442, \u043A\u043E\u0433\u0434\u0430 \u0441\u0442\u0430\u0442\u0443\u0441 \u0437\u0430\u044F\u0432\u043A\u0438 \u0438\u0437\u043C\u0435\u043D\u0438\u0442\u0441\u044F.",
-  "mod.forms.notify_channels": "\u041A\u0443\u0434\u0430 \u0441\u043E\u043E\u0431\u0449\u0430\u0442\u044C",
-  "mod.forms.notify_channels_hint": "\u041A\u0430\u043D\u0430\u043B\u044B \u0432\u0435\u0431\u0445\u0443\u043A\u043E\u0432, \u0432 \u043A\u043E\u0442\u043E\u0440\u044B\u0435 \u0443\u0439\u0434\u0451\u0442 \u043D\u043E\u0432\u0430\u044F \u0437\u0430\u044F\u0432\u043A\u0430.",
   "mod.forms.notify_empty": "\u041A\u0430\u043D\u0430\u043B\u043E\u0432 \u043D\u0435\u0442 \u2014 \u0434\u043E\u0431\u0430\u0432\u044C\u0442\u0435 \u0432\u0435\u0431\u0445\u0443\u043A \u0432 \u0440\u0430\u0437\u0434\u0435\u043B\u0435 \xAB\u0412\u0435\u0431\u0445\u0443\u043A\u0438\xBB.",
   "mod.forms.notify_none": "\u041D\u0438\u043A\u0443\u0434\u0430",
+  "mod.forms.notify_webhooks": "\u0412\u0435\u0431\u0445\u0443\u043A\u0438 \u0434\u043B\u044F \u0443\u0432\u0435\u0434\u043E\u043C\u043B\u0435\u043D\u0438\u0439",
+  "mod.forms.notify_webhooks_hint": "\u041A\u043E\u043D\u043A\u0440\u0435\u0442\u043D\u044B\u0435 \u0432\u0435\u0431\u0445\u0443\u043A\u0438 \u0438\u0437 \u043F\u0430\u043D\u0435\u043B\u0438: \u0437\u0430\u044F\u0432\u043A\u0430 \u0443\u0439\u0434\u0451\u0442 \u0442\u043E\u043B\u044C\u043A\u043E \u0432 \u0432\u044B\u0431\u0440\u0430\u043D\u043D\u044B\u0435.",
   "mod.forms.off": "\u0417\u0430\u043A\u0440\u044B\u0442\u0430",
   "mod.forms.on": "\u041E\u0442\u043A\u0440\u044B\u0442\u0430",
   "mod.forms.once": "\u041E\u0434\u043D\u0430 \u0437\u0430\u044F\u0432\u043A\u0430 \u043D\u0430 \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0430",
@@ -3045,10 +3045,10 @@ var en_default = {
   "mod.forms.no": "No",
   "mod.forms.notify_author": "Email the author about the decision",
   "mod.forms.notify_author_hint": "The email goes out when the submission status changes.",
-  "mod.forms.notify_channels": "Where to announce",
-  "mod.forms.notify_channels_hint": "Webhook channels that receive every new submission.",
   "mod.forms.notify_empty": "No channels \u2014 add a webhook in the \xABWebhooks\xBB section.",
   "mod.forms.notify_none": "Nowhere",
+  "mod.forms.notify_webhooks": "Notification webhooks",
+  "mod.forms.notify_webhooks_hint": "Specific webhooks from the panel: submissions go only to the selected ones.",
   "mod.forms.off": "Closed",
   "mod.forms.on": "Open",
   "mod.forms.once": "One submission per person",

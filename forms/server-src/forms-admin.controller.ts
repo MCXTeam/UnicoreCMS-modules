@@ -17,9 +17,9 @@ export class FormsAdminController {
   }
 
   @Permissions(['mod.forms.read'])
-  @Get('channels')
-  channels() {
-    return core().webhooks.channels()
+  @Get('webhooks')
+  webhooks() {
+    return core().webhooks.list()
   }
 
   @Permissions(['mod.forms.read'])

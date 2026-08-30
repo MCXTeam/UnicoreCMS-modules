@@ -214,16 +214,18 @@
               <div class="p-fluid formgrid grid">
                 <div class="field col-12 md:col-6">
                   <label class="flex align-items-center gap-1">
-                    {{ $t('mod.forms.notify_channels') }}
-                    <i v-tooltip.right="$t('mod.forms.notify_channels_hint')" class="pi pi-question-circle text-color-secondary" />
+                    {{ $t('mod.forms.notify_webhooks') }}
+                    <i v-tooltip.right="$t('mod.forms.notify_webhooks_hint')" class="pi pi-question-circle text-color-secondary" />
                   </label>
                   <MultiSelect
-                    v-model="form.notify_channels"
-                    :options="channels"
+                    v-model="form.notify_webhooks"
+                    :options="webhooks"
+                    optionLabel="name"
+                    optionValue="id"
                     :placeholder="$t('mod.forms.notify_none')"
                     display="chip"
                   />
-                  <small v-if="!channels.length" class="text-color-secondary">{{ $t('mod.forms.notify_empty') }}</small>
+                  <small v-if="!webhooks.length" class="text-color-secondary">{{ $t('mod.forms.notify_empty') }}</small>
                 </div>
 
                 <div class="field-checkbox col-12">
@@ -281,7 +283,7 @@ export default {
   data() {
     return {
       form: null,
-      channels: [],
+      webhooks: [],
       universe: [],
       suggestions: [],
       fieldDialog: false,
@@ -297,9 +299,9 @@ export default {
     async load() {
       const id = this.$route.params.id
 
-      const [form, channels, universe] = await Promise.all([
+      const [form, webhooks, universe] = await Promise.all([
         this.$api.get(`/mod/forms/manage/${id}`).then((res) => res.data).catch(() => null),
-        this.$api.get('/mod/forms/manage/channels').then((res) => res.data).catch(() => []),
+        this.$api.get('/mod/forms/manage/webhooks').then((res) => res.data).catch(() => []),
         this.$api.get('/admin/permissions/catalog').then((res) => (res.data.permissions || []).map((entry) => entry.key)).catch(() => []),
       ])
 
@@ -308,10 +310,10 @@ export default {
       form.fields = (form.fields || []).map((field) => ({ ...field, uid: `saved-${field.id}` }))
       form.open_from = form.open_from ? new Date(form.open_from) : null
       form.open_to = form.open_to ? new Date(form.open_to) : null
-      form.notify_channels = form.notify_channels || []
+      form.notify_webhooks = form.notify_webhooks || []
 
       this.form = form
-      this.channels = channels
+      this.webhooks = webhooks
       this.universe = universe
       this.translations.attach(this.form)
       await this.translations.load(form.id)
@@ -370,7 +372,7 @@ export default {
         closed_text: this.form.closed_text || undefined,
         success_text: this.form.success_text || undefined,
         submit_label: this.form.submit_label || undefined,
-        notify_channels: this.form.notify_channels,
+        notify_webhooks: this.form.notify_webhooks,
         notify_author: this.form.notify_author,
         fields: this.form.fields.map(({ uid, form, ...field }) => ({ ...field, id: field.id || undefined })),
       }
