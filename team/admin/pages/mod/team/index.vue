@@ -180,11 +180,11 @@ export default {
       noteDialog: false,
       section: 'main',
       note: { uuid: null, text: null },
-      memberCategoryIds: {},
       categories: [],
       categoriesLoading: false,
       newCategory: { name: '', position: null },
       memberCategoryIds: {},
+    }
   },
   computed: {
     sections() {
