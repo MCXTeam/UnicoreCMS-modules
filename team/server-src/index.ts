@@ -36,6 +36,19 @@ export default defineModule({
       label: 'mod.team.config_global',
       hint: 'mod.team.config_global_hint',
     },
+    {
+      key: 'display',
+      type: 'select',
+      default: 'servers',
+      public: true,
+      label: 'mod.team.config_display',
+      hint: 'mod.team.config_display_hint',
+      options: [
+        { label: 'По серверам', value: 'servers' },
+        { label: 'По категориям', value: 'categories' },
+        { label: 'Всё вместе', value: 'all' },
+      ],
+    },
   ],
   locales: { ru, en },
 })

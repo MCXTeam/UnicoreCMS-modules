@@ -485,6 +485,7 @@ var _TeamService = class _TeamService {
       username: member.username,
       label: member.label,
       color: member.color || null,
+      role: member.role || null,
       note: notes.get(member.uuid) || null,
       skin: member.skin ? {
         file: member.skin.file
@@ -774,7 +775,10 @@ var ru_default = {
   "mod.team.source_hint": "\u0421\u043E\u0441\u0442\u0430\u0432 \u0431\u0435\u0440\u0451\u0442\u0441\u044F \u0438\u0437 \u0440\u043E\u043B\u0435\u0439 \u0441\u0430\u0439\u0442\u0430 \u0438 \u043F\u0440\u0438\u0432\u0438\u043B\u0435\u0433\u0438\u0439, \u043E\u0442\u043C\u0435\u0447\u0435\u043D\u043D\u044B\u0445 \u043A\u0430\u043A \u0441\u043B\u0443\u0436\u0435\u0431\u043D\u044B\u0435. \u0417\u0434\u0435\u0441\u044C \u043C\u043E\u0436\u043D\u043E \u0442\u043E\u043B\u044C\u043A\u043E \u0434\u043E\u043F\u0438\u0441\u0430\u0442\u044C \u0441\u0442\u0440\u043E\u043A\u0443 \u043E \u0447\u0435\u043B\u043E\u0432\u0435\u043A\u0435.",
   "mod.team.title": "\u041A\u043E\u043C\u0430\u043D\u0434\u0430",
   "mod.team.translations": "\u041F\u0435\u0440\u0435\u0432\u043E\u0434\u044B",
+  "perm.group.mod.team": "\u041A\u043E\u043C\u0430\u043D\u0434\u0430 \u043F\u0440\u043E\u0435\u043A\u0442\u0430",
+  "perm.mod.team.read": "\u0421\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u043A\u043E\u043C\u0430\u043D\u0434\u0443",
   "perm.mod.team.read.hint": "\u0414\u043E\u0441\u0442\u0443\u043F \u043A \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u043C \u043A\u043E\u043C\u0430\u043D\u0434\u044B \u043F\u0440\u043E\u0435\u043A\u0442\u0430.",
+  "perm.mod.team.write": "\u041F\u0440\u0430\u0432\u0438\u0442\u044C \u043A\u043E\u043C\u0430\u043D\u0434\u0443",
   "perm.mod.team.write.hint": "\u0420\u0435\u0434\u0430\u043A\u0442\u0438\u0440\u043E\u0432\u0430\u043D\u0438\u0435 \u043F\u043E\u0434\u043F\u0438\u0441\u0435\u0439 \u0438 \u0437\u0430\u043C\u0435\u0442\u043E\u043A \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432."
 };
 
@@ -806,7 +810,10 @@ var en_default = {
   "mod.team.source_hint": "The team is taken from site roles and privileges marked as staff. Here you can only add a note about a person.",
   "mod.team.title": "Team",
   "mod.team.translations": "Translations",
+  "perm.group.mod.team": "Project team",
+  "perm.mod.team.read": "View team",
   "perm.mod.team.read.hint": "Access to the project team settings.",
+  "perm.mod.team.write": "Edit team",
   "perm.mod.team.write.hint": "Editing member labels and notes."
 };
 
@@ -849,6 +856,28 @@ var index_default = (0, import_server4.defineModule)({
       public: true,
       label: "mod.team.config_global",
       hint: "mod.team.config_global_hint"
+    },
+    {
+      key: "display",
+      type: "select",
+      default: "servers",
+      public: true,
+      label: "mod.team.config_display",
+      hint: "mod.team.config_display_hint",
+      options: [
+        {
+          label: "\u041F\u043E \u0441\u0435\u0440\u0432\u0435\u0440\u0430\u043C",
+          value: "servers"
+        },
+        {
+          label: "\u041F\u043E \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F\u043C",
+          value: "categories"
+        },
+        {
+          label: "\u0412\u0441\u0451 \u0432\u043C\u0435\u0441\u0442\u0435",
+          value: "all"
+        }
+      ]
     }
   ],
   locales: {

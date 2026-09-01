@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { core } from 'unicore-api'
-import type { ServerRecord, StaffMember } from 'unicore-api'
+import type { RoleAppearance, ServerRecord, StaffMember } from 'unicore-api'
 import { TeamNoteInput } from './dto/note.input'
 import { TeamNote } from './entities/note.entity'
 import { TeamCategory } from './entities/category.entity'
@@ -14,6 +14,7 @@ export interface TeamCard {
   username: string
   label: string
   color: string | null
+  role: RoleAppearance | null
   note: TeamNote | null
   skin: { file: string } | null
 }
@@ -168,6 +169,7 @@ export class TeamService {
       username: member.username,
       label: member.label,
       color: member.color || null,
+      role: member.role || null,
       note: notes.get(member.uuid) || null,
       skin: member.skin ? { file: member.skin.file } : null,
     }
