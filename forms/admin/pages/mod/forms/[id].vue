@@ -219,8 +219,8 @@
                   </label>
                   <MultiSelect
                     v-model="form.notify_webhooks"
-                    :options="webhooks"
-                    optionLabel="name"
+                    :options="webhookOptions"
+                    optionLabel="label"
                     optionValue="id"
                     :placeholder="$t('mod.forms.notify_none')"
                     display="chip"
@@ -291,6 +291,14 @@ export default {
       saving: false,
       counter: 0,
     }
+  },
+  computed: {
+    webhookOptions() {
+      return this.webhooks.map((webhook) => ({
+        id: webhook.id,
+        label: `${webhook.name} — ${this.$t(`admin.webhook_request_${webhook.channel}`)}`,
+      }))
+    },
   },
   mounted() {
     this.load()

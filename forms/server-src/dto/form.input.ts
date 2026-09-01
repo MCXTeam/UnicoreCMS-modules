@@ -93,7 +93,7 @@ export class FormInput {
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
-  notify_channels?: string[]
+  notify_webhooks?: string[]
 
   @IsOptional()
   @IsBoolean()

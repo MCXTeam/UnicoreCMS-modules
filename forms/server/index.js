@@ -1500,7 +1500,7 @@ var _FormInput = class _FormInput {
     __publicField(this, "closed_text");
     __publicField(this, "success_text");
     __publicField(this, "submit_label");
-    __publicField(this, "notify_channels");
+    __publicField(this, "notify_webhooks");
     __publicField(this, "notify_author");
     __publicField(this, "fields");
   }
@@ -1614,7 +1614,7 @@ _ts_decorate5([
     each: true
   }),
   _ts_metadata5("design:type", Array)
-], FormInput.prototype, "notify_channels", void 0);
+], FormInput.prototype, "notify_webhooks", void 0);
 _ts_decorate5([
   (0, import_class_validator2.IsOptional)(),
   (0, import_class_validator2.IsBoolean)(),
