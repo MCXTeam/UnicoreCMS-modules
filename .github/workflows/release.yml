@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - '*-v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Разобрать тег
+        id: tag
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          id="${tag%-v*}"
+          version="${tag##*-v}"
+
+          if [ ! -f "$id/module.json" ]; then
+            echo "Папки модуля «$id» с module.json нет в репозитории"
+            exit 1
+          fi
+
+          declared=$(node -p "require('./$id/module.json').version")
+
+          if [ "$declared" != "$version" ]; then
+            echo "В module.json версия $declared, а в теге $version"
+            exit 1
+          fi
+
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Собрать архив
+        env:
+          ID: ${{ steps.tag.outputs.id }}
+          VERSION: ${{ steps.tag.outputs.version }}
+        run: |
+          cd "$ID"
+          zip -r "../$ID-$VERSION.zip" . -x "node_modules/*" "server-src/*" "tsconfig.json" "tsup.config.ts"
+
+      - name: Описание релиза
+        env:
+          ID: ${{ steps.tag.outputs.id }}
+        run: |
+          node -e '
+            const manifest = require(`./${process.env.ID}/module.json`);
+            const summary = { name: manifest.name, description: manifest.description, unicoreApi: manifest.unicoreApi };
+            const title = typeof manifest.name === "string" ? manifest.name : manifest.name.ru || Object.values(manifest.name)[0];
+            require("fs").writeFileSync("release-name.txt", `${title} ${manifest.version}`);
+            require("fs").writeFileSync("release-body.md", "```json\n" + JSON.stringify(summary) + "\n```\n");
+          '
+          echo "name=$(cat release-name.txt)" >> "$GITHUB_OUTPUT"
+        id: notes
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.notes.outputs.name }}
+          body_path: release-body.md
+          files: ${{ steps.tag.outputs.id }}-${{ steps.tag.outputs.version }}.zip
