@@ -44,8 +44,11 @@ export const CONDITION_OPERATORS = [
   { value: 'lt', label: 'mod.forms.op_lt', value_needed: true },
 ]
 
+export const LEGACY_NEW_STATUS = 'new'
+
+export const DEFAULT_SUBMISSION_STATUS = 'review'
+
 export const SUBMISSION_STATUSES = [
-  { value: 'new', label: 'mod.forms.status_new', severity: 'info', icon: 'pi pi-inbox' },
   { value: 'review', label: 'mod.forms.status_review', severity: 'warn', icon: 'pi pi-eye' },
   { value: 'accepted', label: 'mod.forms.status_accepted', severity: 'success', icon: 'pi pi-check' },
   { value: 'rejected', label: 'mod.forms.status_rejected', severity: 'danger', icon: 'pi pi-times' },

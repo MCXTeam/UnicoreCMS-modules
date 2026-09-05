@@ -42,7 +42,13 @@
                 <template #header>
                   <div class="flex justify-content-between align-items-center">
                     <small class="text-color-secondary">{{ $t('mod.forms.fields_hint') }}</small>
-                    <Button :label="$t('mod.forms.field_add')" icon="pi pi-plus" class="p-button-text" @click="addField()" />
+                    <Button
+                      :label="$t('mod.forms.field_add')"
+                      icon="pi pi-plus"
+                      class="p-button-text"
+                      :disabled="!canWrite"
+                      @click="addField()"
+                    />
                   </div>
                 </template>
                 <template #empty>
@@ -52,7 +58,7 @@
                   </div>
                 </template>
 
-                <Column rowReorder :style="{ width: '3rem' }" />
+                <Column v-if="canWrite" rowReorder :style="{ width: '3rem' }" />
 
                 <Column :header="$t('mod.forms.field_type')" :style="{ width: '13rem' }">
                   <template #body="{ data }">
@@ -80,7 +86,12 @@
 
                 <Column :style="{ width: '8rem' }" :bodyStyle="{ 'text-align': 'right' }">
                   <template #body="{ data, index }">
-                    <Button icon="pi pi-pencil" class="p-button-rounded p-button-success mr-1" @click="editField(data)" />
+                    <Button
+                      icon="pi pi-pencil"
+                      class="p-button-rounded p-button-success mr-1"
+                      :disabled="!canWrite"
+                      @click="editField(data)"
+                    />
                     <Button icon="pi pi-trash" class="p-button-rounded p-button-danger" :disabled="!canWrite" @click="dropField(index)" />
                   </template>
                 </Column>

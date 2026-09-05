@@ -153,7 +153,7 @@ export default {
       loading: true,
       dialog: false,
       current: null,
-      review: { status: 'new', comment: '' },
+      review: { status: 'review', comment: '' },
       filters: { form: null, status: null },
     }
   },

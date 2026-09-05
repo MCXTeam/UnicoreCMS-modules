@@ -14,7 +14,7 @@ import {
   type ClosedReason,
   type FormFieldShape,
 } from '../shared/constants'
-import { GUEST_EMAIL, GUEST_NAME } from '../shared/constants'
+import { DEFAULT_SUBMISSION_STATUS, GUEST_EMAIL, GUEST_NAME, LEGACY_NEW_STATUS } from '../shared/constants'
 import { presetById } from '../shared/presets'
 import { FieldInput } from './dto/field.input'
 import { FormCreateInput, FormInput } from './dto/form.input'
@@ -65,7 +65,7 @@ export class FormsService {
       .leftJoin('s.form', 'form')
       .select('form.id', 'form')
       .addSelect('COUNT(s.id)', 'total')
-      .addSelect("SUM(CASE WHEN s.status = 'new' THEN 1 ELSE 0 END)", 'fresh')
+      .addSelect(`SUM(CASE WHEN s.status IN ('${LEGACY_NEW_STATUS}', '${DEFAULT_SUBMISSION_STATUS}') THEN 1 ELSE 0 END)`, 'fresh')
       .groupBy('form.id')
       .getRawMany()
 
@@ -231,7 +231,7 @@ export class FormsService {
       email: user?.email || guestEmail || this.emailFromAnswers(shown, answers),
       ip,
       answers: this.snapshot(shown, answers, servers),
-      status: 'new',
+      status: DEFAULT_SUBMISSION_STATUS,
     })
 
     await this.submissions.save(submission)
@@ -248,7 +248,8 @@ export class FormsService {
     const where: Record<string, unknown> = {}
 
     if (query.form) where.form = { id: query.form }
-    if (query.status) where.status = query.status
+    if (query.status)
+      where.status = query.status === DEFAULT_SUBMISSION_STATUS ? In([LEGACY_NEW_STATUS, DEFAULT_SUBMISSION_STATUS]) : query.status
 
     const [items, total] = await this.submissions.findAndCount({
       where,

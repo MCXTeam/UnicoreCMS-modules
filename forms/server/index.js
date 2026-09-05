@@ -423,6 +423,323 @@ FormField = _ts_decorate2([
 
 // server-src/entities/submission.entity.ts
 var import_typeorm3 = require("typeorm");
+
+// shared/constants.ts
+var FIELD_TYPES = [
+  {
+    type: "text",
+    label: "mod.forms.type_text",
+    icon: "pi pi-pencil",
+    input: true,
+    options: false,
+    multi: false,
+    settings: [
+      "min_length",
+      "max_length",
+      "pattern"
+    ]
+  },
+  {
+    type: "textarea",
+    label: "mod.forms.type_textarea",
+    icon: "pi pi-align-left",
+    input: true,
+    options: false,
+    multi: false,
+    settings: [
+      "min_length",
+      "max_length",
+      "rows"
+    ]
+  },
+  {
+    type: "number",
+    label: "mod.forms.type_number",
+    icon: "pi pi-hashtag",
+    input: true,
+    options: false,
+    multi: false,
+    settings: [
+      "min",
+      "max",
+      "step"
+    ]
+  },
+  {
+    type: "email",
+    label: "mod.forms.type_email",
+    icon: "pi pi-envelope",
+    input: true,
+    options: false,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "url",
+    label: "mod.forms.type_url",
+    icon: "pi pi-link",
+    input: true,
+    options: false,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "select",
+    label: "mod.forms.type_select",
+    icon: "pi pi-chevron-down",
+    input: true,
+    options: true,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "multiselect",
+    label: "mod.forms.type_multiselect",
+    icon: "pi pi-list",
+    input: true,
+    options: true,
+    multi: true,
+    settings: [
+      "min",
+      "max"
+    ]
+  },
+  {
+    type: "radio",
+    label: "mod.forms.type_radio",
+    icon: "pi pi-circle",
+    input: true,
+    options: true,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "checkboxes",
+    label: "mod.forms.type_checkboxes",
+    icon: "pi pi-check-square",
+    input: true,
+    options: true,
+    multi: true,
+    settings: [
+      "min",
+      "max"
+    ]
+  },
+  {
+    type: "checkbox",
+    label: "mod.forms.type_checkbox",
+    icon: "pi pi-check",
+    input: true,
+    options: false,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "switch",
+    label: "mod.forms.type_switch",
+    icon: "pi pi-power-off",
+    input: true,
+    options: false,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "date",
+    label: "mod.forms.type_date",
+    icon: "pi pi-calendar",
+    input: true,
+    options: false,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "slider",
+    label: "mod.forms.type_slider",
+    icon: "pi pi-sliders-h",
+    input: true,
+    options: false,
+    multi: false,
+    settings: [
+      "min",
+      "max",
+      "step"
+    ]
+  },
+  {
+    type: "rating",
+    label: "mod.forms.type_rating",
+    icon: "pi pi-star",
+    input: true,
+    options: false,
+    multi: false,
+    settings: [
+      "stars"
+    ]
+  },
+  {
+    type: "server",
+    label: "mod.forms.type_server",
+    icon: "pi pi-server",
+    input: true,
+    options: false,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "file",
+    label: "mod.forms.type_file",
+    icon: "pi pi-paperclip",
+    input: true,
+    options: false,
+    multi: false,
+    settings: [
+      "accept",
+      "max_size"
+    ]
+  },
+  {
+    type: "heading",
+    label: "mod.forms.type_heading",
+    icon: "pi pi-bookmark",
+    input: false,
+    options: false,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "paragraph",
+    label: "mod.forms.type_paragraph",
+    icon: "pi pi-comment",
+    input: false,
+    options: false,
+    multi: false,
+    settings: []
+  },
+  {
+    type: "divider",
+    label: "mod.forms.type_divider",
+    icon: "pi pi-minus",
+    input: false,
+    options: false,
+    multi: false,
+    settings: []
+  }
+];
+var fieldType = /* @__PURE__ */ __name((type) => FIELD_TYPES.find((item) => item.type === type) || FIELD_TYPES[0], "fieldType");
+var LEGACY_NEW_STATUS = "new";
+var DEFAULT_SUBMISSION_STATUS = "review";
+var SUBMISSION_STATUSES = [
+  {
+    value: "review",
+    label: "mod.forms.status_review",
+    severity: "warn",
+    icon: "pi pi-eye"
+  },
+  {
+    value: "accepted",
+    label: "mod.forms.status_accepted",
+    severity: "success",
+    icon: "pi pi-check"
+  },
+  {
+    value: "rejected",
+    label: "mod.forms.status_rejected",
+    severity: "danger",
+    icon: "pi pi-times"
+  }
+];
+var RESERVED_SLUGS = [
+  "nav",
+  "my",
+  "manage"
+];
+var GUEST_NAME = "__username";
+var GUEST_EMAIL = "__email";
+var FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,47}$/;
+var FORM_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,47}$/;
+var DEFAULT_MAX_SIZE_MB = 8;
+var UPLOADS_PER_HOUR = 10;
+var OPTION_LABEL_LIMIT = 120;
+var isEmptyAnswer = /* @__PURE__ */ __name((value) => {
+  if (value === null || value === void 0) return true;
+  if (Array.isArray(value)) return !value.length;
+  if (typeof value === "string") return !value.trim();
+  if (typeof value === "boolean") return !value;
+  return false;
+}, "isEmptyAnswer");
+var conditionMet = /* @__PURE__ */ __name((condition, answers) => {
+  if (!condition || !condition.field) return true;
+  const value = answers[condition.field];
+  const expected = condition.value ?? "";
+  switch (condition.op) {
+    case "filled":
+      return !isEmptyAnswer(value);
+    case "empty":
+      return isEmptyAnswer(value);
+    case "ne":
+      return String(value ?? "") !== expected;
+    case "contains":
+      return Array.isArray(value) ? value.map(String).includes(expected) : String(value ?? "").includes(expected);
+    case "gt":
+      return Number(value) > Number(expected);
+    case "lt":
+      return Number(value) < Number(expected);
+    default:
+      return String(value ?? "") === expected;
+  }
+}, "conditionMet");
+var visibleFields = /* @__PURE__ */ __name((fields, answers) => fields.filter((field) => conditionMet(field.visible_if, answers)), "visibleFields");
+var EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+var answerError = /* @__PURE__ */ __name((field, value) => {
+  const info = fieldType(field.type);
+  if (!info.input) return null;
+  const settings = field.settings || {};
+  const empty = isEmptyAnswer(value);
+  if (field.required && empty) return "mod.forms.error_required";
+  if (empty) return null;
+  if (info.options) {
+    const allowed = (field.options || []).map((option) => option.value);
+    const picked = Array.isArray(value) ? value.map(String) : [
+      String(value)
+    ];
+    if (picked.some((item) => !allowed.includes(item))) return "mod.forms.error_option";
+  }
+  if (info.multi) {
+    const count = Array.isArray(value) ? value.length : 0;
+    if (settings.min && count < settings.min) return "mod.forms.error_pick_min";
+    if (settings.max && count > settings.max) return "mod.forms.error_pick_max";
+  }
+  if (field.type === "email" && !EMAIL_PATTERN.test(String(value))) return "mod.forms.error_email";
+  if (field.type === "url" && !/^https?:\/\/\S+$/i.test(String(value))) return "mod.forms.error_url";
+  if ([
+    "text",
+    "textarea"
+  ].includes(field.type)) {
+    const text = String(value);
+    if (settings.min_length && text.length < settings.min_length) return "mod.forms.error_min_length";
+    if (settings.max_length && text.length > settings.max_length) return "mod.forms.error_max_length";
+    if (settings.pattern) {
+      try {
+        if (!new RegExp(settings.pattern).test(text)) return "mod.forms.error_pattern";
+      } catch {
+        return null;
+      }
+    }
+  }
+  if ([
+    "number",
+    "slider",
+    "rating"
+  ].includes(field.type)) {
+    const number = Number(value);
+    if (Number.isNaN(number)) return "mod.forms.error_number";
+    if (settings.min !== void 0 && settings.min !== null && number < settings.min) return "mod.forms.error_min";
+    if (settings.max !== void 0 && settings.max !== null && number > settings.max) return "mod.forms.error_max";
+  }
+  return null;
+}, "answerError");
+
+// server-src/entities/submission.entity.ts
 function _ts_decorate3(decorators, target, key, desc) {
   var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
   if (typeof Reflect === "object" && typeof Reflect.decorate === "function") {
@@ -520,7 +837,7 @@ _ts_decorate3([
   (0, import_typeorm3.Column)({
     name: "status",
     length: 16,
-    default: "new"
+    default: DEFAULT_SUBMISSION_STATUS
   }),
   _ts_metadata3("design:type", String)
 ], FormSubmission.prototype, "status", void 0);
@@ -995,325 +1312,6 @@ var presetById = /* @__PURE__ */ __name((id) => FORM_PRESETS.find((item) => item
 var import_class_transformer2 = require("class-transformer");
 var import_class_validator2 = require("class-validator");
 
-// shared/constants.ts
-var FIELD_TYPES = [
-  {
-    type: "text",
-    label: "mod.forms.type_text",
-    icon: "pi pi-pencil",
-    input: true,
-    options: false,
-    multi: false,
-    settings: [
-      "min_length",
-      "max_length",
-      "pattern"
-    ]
-  },
-  {
-    type: "textarea",
-    label: "mod.forms.type_textarea",
-    icon: "pi pi-align-left",
-    input: true,
-    options: false,
-    multi: false,
-    settings: [
-      "min_length",
-      "max_length",
-      "rows"
-    ]
-  },
-  {
-    type: "number",
-    label: "mod.forms.type_number",
-    icon: "pi pi-hashtag",
-    input: true,
-    options: false,
-    multi: false,
-    settings: [
-      "min",
-      "max",
-      "step"
-    ]
-  },
-  {
-    type: "email",
-    label: "mod.forms.type_email",
-    icon: "pi pi-envelope",
-    input: true,
-    options: false,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "url",
-    label: "mod.forms.type_url",
-    icon: "pi pi-link",
-    input: true,
-    options: false,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "select",
-    label: "mod.forms.type_select",
-    icon: "pi pi-chevron-down",
-    input: true,
-    options: true,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "multiselect",
-    label: "mod.forms.type_multiselect",
-    icon: "pi pi-list",
-    input: true,
-    options: true,
-    multi: true,
-    settings: [
-      "min",
-      "max"
-    ]
-  },
-  {
-    type: "radio",
-    label: "mod.forms.type_radio",
-    icon: "pi pi-circle",
-    input: true,
-    options: true,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "checkboxes",
-    label: "mod.forms.type_checkboxes",
-    icon: "pi pi-check-square",
-    input: true,
-    options: true,
-    multi: true,
-    settings: [
-      "min",
-      "max"
-    ]
-  },
-  {
-    type: "checkbox",
-    label: "mod.forms.type_checkbox",
-    icon: "pi pi-check",
-    input: true,
-    options: false,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "switch",
-    label: "mod.forms.type_switch",
-    icon: "pi pi-power-off",
-    input: true,
-    options: false,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "date",
-    label: "mod.forms.type_date",
-    icon: "pi pi-calendar",
-    input: true,
-    options: false,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "slider",
-    label: "mod.forms.type_slider",
-    icon: "pi pi-sliders-h",
-    input: true,
-    options: false,
-    multi: false,
-    settings: [
-      "min",
-      "max",
-      "step"
-    ]
-  },
-  {
-    type: "rating",
-    label: "mod.forms.type_rating",
-    icon: "pi pi-star",
-    input: true,
-    options: false,
-    multi: false,
-    settings: [
-      "stars"
-    ]
-  },
-  {
-    type: "server",
-    label: "mod.forms.type_server",
-    icon: "pi pi-server",
-    input: true,
-    options: false,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "file",
-    label: "mod.forms.type_file",
-    icon: "pi pi-paperclip",
-    input: true,
-    options: false,
-    multi: false,
-    settings: [
-      "accept",
-      "max_size"
-    ]
-  },
-  {
-    type: "heading",
-    label: "mod.forms.type_heading",
-    icon: "pi pi-bookmark",
-    input: false,
-    options: false,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "paragraph",
-    label: "mod.forms.type_paragraph",
-    icon: "pi pi-comment",
-    input: false,
-    options: false,
-    multi: false,
-    settings: []
-  },
-  {
-    type: "divider",
-    label: "mod.forms.type_divider",
-    icon: "pi pi-minus",
-    input: false,
-    options: false,
-    multi: false,
-    settings: []
-  }
-];
-var fieldType = /* @__PURE__ */ __name((type) => FIELD_TYPES.find((item) => item.type === type) || FIELD_TYPES[0], "fieldType");
-var SUBMISSION_STATUSES = [
-  {
-    value: "new",
-    label: "mod.forms.status_new",
-    severity: "info",
-    icon: "pi pi-inbox"
-  },
-  {
-    value: "review",
-    label: "mod.forms.status_review",
-    severity: "warn",
-    icon: "pi pi-eye"
-  },
-  {
-    value: "accepted",
-    label: "mod.forms.status_accepted",
-    severity: "success",
-    icon: "pi pi-check"
-  },
-  {
-    value: "rejected",
-    label: "mod.forms.status_rejected",
-    severity: "danger",
-    icon: "pi pi-times"
-  }
-];
-var RESERVED_SLUGS = [
-  "nav",
-  "my",
-  "manage"
-];
-var GUEST_NAME = "__username";
-var GUEST_EMAIL = "__email";
-var FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,47}$/;
-var FORM_SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,47}$/;
-var DEFAULT_MAX_SIZE_MB = 8;
-var UPLOADS_PER_HOUR = 10;
-var OPTION_LABEL_LIMIT = 120;
-var isEmptyAnswer = /* @__PURE__ */ __name((value) => {
-  if (value === null || value === void 0) return true;
-  if (Array.isArray(value)) return !value.length;
-  if (typeof value === "string") return !value.trim();
-  if (typeof value === "boolean") return !value;
-  return false;
-}, "isEmptyAnswer");
-var conditionMet = /* @__PURE__ */ __name((condition, answers) => {
-  if (!condition || !condition.field) return true;
-  const value = answers[condition.field];
-  const expected = condition.value ?? "";
-  switch (condition.op) {
-    case "filled":
-      return !isEmptyAnswer(value);
-    case "empty":
-      return isEmptyAnswer(value);
-    case "ne":
-      return String(value ?? "") !== expected;
-    case "contains":
-      return Array.isArray(value) ? value.map(String).includes(expected) : String(value ?? "").includes(expected);
-    case "gt":
-      return Number(value) > Number(expected);
-    case "lt":
-      return Number(value) < Number(expected);
-    default:
-      return String(value ?? "") === expected;
-  }
-}, "conditionMet");
-var visibleFields = /* @__PURE__ */ __name((fields, answers) => fields.filter((field) => conditionMet(field.visible_if, answers)), "visibleFields");
-var EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-var answerError = /* @__PURE__ */ __name((field, value) => {
-  const info = fieldType(field.type);
-  if (!info.input) return null;
-  const settings = field.settings || {};
-  const empty = isEmptyAnswer(value);
-  if (field.required && empty) return "mod.forms.error_required";
-  if (empty) return null;
-  if (info.options) {
-    const allowed = (field.options || []).map((option) => option.value);
-    const picked = Array.isArray(value) ? value.map(String) : [
-      String(value)
-    ];
-    if (picked.some((item) => !allowed.includes(item))) return "mod.forms.error_option";
-  }
-  if (info.multi) {
-    const count = Array.isArray(value) ? value.length : 0;
-    if (settings.min && count < settings.min) return "mod.forms.error_pick_min";
-    if (settings.max && count > settings.max) return "mod.forms.error_pick_max";
-  }
-  if (field.type === "email" && !EMAIL_PATTERN.test(String(value))) return "mod.forms.error_email";
-  if (field.type === "url" && !/^https?:\/\/\S+$/i.test(String(value))) return "mod.forms.error_url";
-  if ([
-    "text",
-    "textarea"
-  ].includes(field.type)) {
-    const text = String(value);
-    if (settings.min_length && text.length < settings.min_length) return "mod.forms.error_min_length";
-    if (settings.max_length && text.length > settings.max_length) return "mod.forms.error_max_length";
-    if (settings.pattern) {
-      try {
-        if (!new RegExp(settings.pattern).test(text)) return "mod.forms.error_pattern";
-      } catch {
-        return null;
-      }
-    }
-  }
-  if ([
-    "number",
-    "slider",
-    "rating"
-  ].includes(field.type)) {
-    const number = Number(value);
-    if (Number.isNaN(number)) return "mod.forms.error_number";
-    if (settings.min !== void 0 && settings.min !== null && number < settings.min) return "mod.forms.error_min";
-    if (settings.max !== void 0 && settings.max !== null && number > settings.max) return "mod.forms.error_max";
-  }
-  return null;
-}, "answerError");
-
 // server-src/dto/field.input.ts
 var import_class_transformer = require("class-transformer");
 var import_class_validator = require("class-validator");
@@ -1762,7 +1760,7 @@ var _FormsService = class _FormsService {
       }
     });
     if (!forms.length) return [];
-    const counts = await this.submissions.createQueryBuilder("s").leftJoin("s.form", "form").select("form.id", "form").addSelect("COUNT(s.id)", "total").addSelect("SUM(CASE WHEN s.status = 'new' THEN 1 ELSE 0 END)", "fresh").groupBy("form.id").getRawMany();
+    const counts = await this.submissions.createQueryBuilder("s").leftJoin("s.form", "form").select("form.id", "form").addSelect("COUNT(s.id)", "total").addSelect(`SUM(CASE WHEN s.status IN ('${LEGACY_NEW_STATUS}', '${DEFAULT_SUBMISSION_STATUS}') THEN 1 ELSE 0 END)`, "fresh").groupBy("form.id").getRawMany();
     const byId = new Map(counts.map((row) => [
       Number(row.form),
       {
@@ -1941,7 +1939,7 @@ var _FormsService = class _FormsService {
       email: user?.email || guestEmail || this.emailFromAnswers(shown, answers),
       ip,
       answers: this.snapshot(shown, answers, servers),
-      status: "new"
+      status: DEFAULT_SUBMISSION_STATUS
     });
     await this.submissions.save(submission);
     await this.announce(form, submission);
@@ -1962,7 +1960,10 @@ var _FormsService = class _FormsService {
     if (query.form) where.form = {
       id: query.form
     };
-    if (query.status) where.status = query.status;
+    if (query.status) where.status = query.status === DEFAULT_SUBMISSION_STATUS ? (0, import_typeorm5.In)([
+      LEGACY_NEW_STATUS,
+      DEFAULT_SUBMISSION_STATUS
+    ]) : query.status;
     const [items, total] = await this.submissions.findAndCount({
       where,
       order: {

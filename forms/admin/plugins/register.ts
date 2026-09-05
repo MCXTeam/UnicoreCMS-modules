@@ -14,7 +14,7 @@ export default defineNuxtPlugin(() => {
       },
     ],
     access: {
-      '/mod/forms': ['mod.forms.read'],
+      '/mod/forms': ['mod.forms.write'],
       '/mod/forms/inbox': ['mod.forms.read'],
     },
   })

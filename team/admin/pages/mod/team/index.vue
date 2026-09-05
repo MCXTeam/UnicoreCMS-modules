@@ -102,12 +102,24 @@
               {{ $t('mod.team.categories') }}
               <i v-tooltip.right="$t('mod.team.categories_hint')" class="pi pi-question-circle text-color-secondary" />
             </h5>
-            <div class="flex gap-2">
-              <InputText v-model="newCategory.name" :placeholder="$t('mod.team.category_name')" :disabled="!canWrite" />
-              <InputNumber v-model="newCategory.position" :placeholder="$t('mod.team.category_position')" :disabled="!canWrite" class="w-8rem" />
+            <div class="flex flex-wrap align-items-center gap-2">
+              <InputText
+                v-model="newCategory.name"
+                :placeholder="$t('mod.team.category_name')"
+                :disabled="!canWrite"
+                class="w-12rem"
+              />
+              <InputNumber
+                v-model="newCategory.position"
+                :placeholder="$t('mod.team.category_position')"
+                :disabled="!canWrite"
+                inputClass="w-7rem"
+                :min="0"
+              />
               <Button
                 :label="$t('mod.team.category_add')"
                 icon="pi pi-plus"
+                class="flex-shrink-0 white-space-nowrap"
                 :disabled="!canWrite || !newCategory.name"
                 @click="addCategory()"
               />
@@ -199,25 +211,104 @@ export default {
   },
   methods: {
     async load() {
-      this.loadCategories()
       this.loading = true
       this.noteDialog = false
-      this.members = await this.$api
-        .get('/mod/team/members')
-        .then((res) => res.data)
-        .catch(() => [])
 
-      const pairs = await Promise.all(
-        this.members.map((member) =>
-          this.$api
-            .get(`/mod/team/members/${member.uuid}/categories`, { silent: true })
-            .then((res) => [member.uuid, res.data])
-            .catch(() => [member.uuid, []]),
-        ),
-      )
-      this.memberCategoryIds = Object.fromEntries(pairs)
+      try {
+        await this.loadCategories()
 
-      this.loading = false
+        this.members = await this.$api
+          .get('/mod/team/members')
+          .then((res) => res.data)
+          .catch(() => [])
+
+        const pairs = await Promise.all(
+          this.members.map((member) =>
+            this.$api
+              .get(`/mod/team/members/${member.uuid}/categories`, { silent: true })
+              .then((res) => [member.uuid, res.data])
+              .catch(() => [member.uuid, []]),
+          ),
+        )
+
+        this.memberCategoryIds = Object.fromEntries(pairs)
+      } finally {
+        this.loading = false
+      }
+    },
+    async loadCategories() {
+      this.categoriesLoading = true
+
+      try {
+        this.categories = await this.$api
+          .get('/mod/team/categories')
+          .then((res) => res.data)
+          .catch(() => [])
+      } finally {
+        this.categoriesLoading = false
+      }
+    },
+    categoryNames(uuid) {
+      const ids = this.memberCategoryIds[uuid] || []
+
+      return this.categories
+        .filter((category) => ids.includes(category.id))
+        .map((category) => category.name)
+        .join(', ')
+    },
+    async addCategory() {
+      const name = String(this.newCategory.name || '').trim()
+
+      if (!name) return
+
+      this.categoriesLoading = true
+
+      const ok = await this.$api
+        .post('/mod/team/categories', { name, ...(this.newCategory.position === null ? {} : { position: this.newCategory.position }) })
+        .then(() => true)
+        .catch(() => false)
+
+      this.categoriesLoading = false
+
+      if (!ok) return this.$utils.notifyError(null, this.$t('admin.invalid_data'))
+
+      this.newCategory = { name: '', position: null }
+
+      await this.loadCategories()
+    },
+    async saveCategory(category, position) {
+      const name = String(category.name || '').trim()
+
+      if (!name) return
+
+      const next = position === undefined ? category.position : position
+
+      if (position !== undefined) category.position = position
+
+      const ok = await this.$api
+        .patch(`/mod/team/categories/${category.id}`, { name, ...(next === null || next === undefined ? {} : { position: next }) })
+        .then(() => true)
+        .catch(() => false)
+
+      if (!ok) return this.$utils.notifyError(null, this.$t('admin.invalid_data'))
+
+      await this.loadCategories()
+    },
+    removeCategory(category) {
+      this.$confirm.require({
+        message: this.$t('admin.irreversible'),
+        header: this.$t('admin.confirm_delete'),
+        icon: 'pi pi-exclamation-triangle',
+        accept: async () => {
+          this.categoriesLoading = true
+
+          await this.$api.delete(`/mod/team/categories/${category.id}`).catch(() => {})
+
+          this.categoriesLoading = false
+
+          await this.load()
+        },
+      })
     },
     async openNote(member) {
       this.section = 'main'

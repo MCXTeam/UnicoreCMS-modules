@@ -1,4 +1,5 @@
 import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from 'typeorm'
+import { DEFAULT_SUBMISSION_STATUS } from '../../shared/constants'
 import { Form } from './form.entity'
 
 export interface SubmissionAnswer {
@@ -32,7 +33,7 @@ export class FormSubmission {
   @Column('simple-json', { name: 'answers' })
   answers: SubmissionAnswer[]
 
-  @Column({ name: 'status', length: 16, default: 'new' })
+  @Column({ name: 'status', length: 16, default: DEFAULT_SUBMISSION_STATUS })
   status: string
 
   @Column('text', { name: 'comment', nullable: true })
