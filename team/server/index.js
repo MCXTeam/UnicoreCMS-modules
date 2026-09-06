@@ -389,7 +389,7 @@ var _TeamService = class _TeamService {
       categoryId
     })));
   }
-  async categorySections() {
+  async categorySections(restTitle) {
     const [categories, members] = await Promise.all([
       this.listCategories(),
       (0, import_unicore_api.core)().staff.members()
@@ -402,6 +402,7 @@ var _TeamService = class _TeamService {
     ]));
     const notes = await this.noteMap();
     const sections = /* @__PURE__ */ new Map();
+    const placed = /* @__PURE__ */ new Set();
     for (const category of categories) {
       sections.set(category.id, {
         id: `category-${category.id}`,
@@ -414,12 +415,27 @@ var _TeamService = class _TeamService {
       const member = byUuid.get(link.userUuid);
       const section = sections.get(link.categoryId);
       if (!member || !section) continue;
+      placed.add(member.uuid);
       section.members.push(this.card(member, notes));
     }
     for (const section of sections.values()) section.members = this.sortCards(section.members);
-    return [
+    const rest = this.sorted(members).filter((member) => !placed.has(member.uuid));
+    const unique = new Map(rest.map((member) => [
+      member.uuid,
+      member
+    ]));
+    const result = [
       ...sections.values()
     ];
+    if (unique.size) result.push({
+      id: "uncategorized",
+      title: restTitle,
+      icon: null,
+      members: this.sortCards([
+        ...unique.values()
+      ].map((member) => this.card(member, notes)))
+    });
+    return result;
   }
   sortCards(cards) {
     return cards.slice().sort((left, right) => left.username.localeCompare(right.username));
@@ -568,8 +584,9 @@ var _TeamController = class _TeamController {
   saveNote(uuid, body) {
     return this.service.saveNote(uuid, body);
   }
-  categorySections() {
-    return this.service.categorySections();
+  async categorySections() {
+    const title = await (0, import_unicore_api2.core)().config.get("public_mod_team_rest") || "\u0411\u0435\u0437 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438";
+    return this.service.categorySections(title);
   }
   listCategories() {
     return this.service.listCategories();
@@ -627,7 +644,7 @@ _ts_decorate7([
   (0, import_common2.Get)("categories-sections"),
   _ts_metadata7("design:type", Function),
   _ts_metadata7("design:paramtypes", []),
-  _ts_metadata7("design:returntype", void 0)
+  _ts_metadata7("design:returntype", Promise)
 ], TeamController.prototype, "categorySections", null);
 _ts_decorate7([
   (0, import_server3.Permissions)([
@@ -750,15 +767,18 @@ TeamModule = _ts_decorate8([
 // locales/ru.json
 var ru_default = {
   "mod.team.categories": "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438",
+  "mod.team.categories_display_hint": "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438 \u0432\u0438\u0434\u043D\u044B \u043D\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0435 \u043A\u043E\u043C\u0430\u043D\u0434\u044B \u0432 \u0440\u0435\u0436\u0438\u043C\u0430\u0445 \xAB\u041F\u043E \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F\u043C\xBB \u0438 \xAB\u0412\u0441\u0451 \u0432\u043C\u0435\u0441\u0442\u0435\xBB. \u0420\u0435\u0436\u0438\u043C \u0432\u044B\u0431\u0438\u0440\u0430\u0435\u0442\u0441\u044F \u0432 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0430\u0445 \u043C\u043E\u0434\u0443\u043B\u044F.",
   "mod.team.categories_empty": "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0439 \u043D\u0435\u0442: \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438 \u0433\u0440\u0443\u043F\u043F\u0438\u0440\u0443\u044E\u0442\u0441\u044F \u043F\u043E \u0441\u0435\u0440\u0432\u0435\u0440\u0430\u043C.",
   "mod.team.categories_hint": "\u041F\u0440\u043E\u0438\u0437\u0432\u043E\u043B\u044C\u043D\u044B\u0435 \u0440\u0430\u0437\u0434\u0435\u043B\u044B \u043A\u043E\u043C\u0430\u043D\u0434\u044B: \u043D\u0430\u043F\u0440\u0438\u043C\u0435\u0440 \xAB\u041C\u043E\u0434\u0435\u0440\u0430\u0446\u0438\u044F\xBB \u0438\u043B\u0438 \xAB\u0420\u0430\u0437\u0440\u0430\u0431\u043E\u0442\u043A\u0430\xBB. \u0423\u0447\u0430\u0441\u0442\u043D\u0438\u043A \u043C\u043E\u0436\u0435\u0442 \u0441\u043E\u0441\u0442\u043E\u044F\u0442\u044C \u0432 \u043D\u0435\u0441\u043A\u043E\u043B\u044C\u043A\u0438\u0445.",
   "mod.team.category_add": "\u0414\u043E\u0431\u0430\u0432\u0438\u0442\u044C \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044E",
   "mod.team.category_name": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435",
   "mod.team.category_position": "\u041F\u043E\u0440\u044F\u0434\u043E\u043A",
   "mod.team.config_display": "\u041E\u0442\u043E\u0431\u0440\u0430\u0436\u0435\u043D\u0438\u0435 \u043A\u043E\u043C\u0430\u043D\u0434\u044B",
-  "mod.team.config_display_hint": "\u041A\u0430\u043A \u0433\u0440\u0443\u043F\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432 \u043D\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0435 \u043A\u043E\u043C\u0430\u043D\u0434\u044B.",
+  "mod.team.config_display_hint": "\u041A\u0430\u043A \u0433\u0440\u0443\u043F\u043F\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u043E\u0432 \u043D\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0435 \u043A\u043E\u043C\u0430\u043D\u0434\u044B. \u0412 \u0440\u0435\u0436\u0438\u043C\u0435 \xAB\u041F\u043E \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F\u043C\xBB \u0440\u0430\u0437\u0431\u0438\u0432\u043A\u0430 \u043F\u043E \u0441\u0435\u0440\u0432\u0435\u0440\u0430\u043C \u043D\u0435 \u043F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0435\u0442\u0441\u044F; \u043F\u043E\u043A\u0430 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0439 \u043D\u0435\u0442, \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438 \u0432\u0441\u0451 \u0440\u0430\u0432\u043D\u043E \u0433\u0440\u0443\u043F\u043F\u0438\u0440\u0443\u044E\u0442\u0441\u044F \u043F\u043E \u0441\u0435\u0440\u0432\u0435\u0440\u0430\u043C.",
   "mod.team.config_global": "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A \u043E\u0431\u0449\u0435\u0433\u043E \u0440\u0430\u0437\u0434\u0435\u043B\u0430",
   "mod.team.config_global_hint": "\u0422\u0430\u043A \u043D\u0430\u0437\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0440\u0430\u0437\u0434\u0435\u043B \u0441 \u043E\u0431\u043B\u0430\u0434\u0430\u0442\u0435\u043B\u044F\u043C\u0438 \u0441\u043B\u0443\u0436\u0435\u0431\u043D\u044B\u0445 \u0440\u043E\u043B\u0435\u0439 \u0441\u0430\u0439\u0442\u0430 \u2014 \u043E\u043D\u0438 \u043D\u0435 \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u043D\u044B \u043A \u0441\u0435\u0440\u0432\u0435\u0440\u0443.",
+  "mod.team.config_rest": "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A \u0440\u0430\u0437\u0434\u0435\u043B\u0430 \u0431\u0435\u0437 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438",
+  "mod.team.config_rest_hint": "\u0422\u0430\u043A \u043D\u0430\u0437\u044B\u0432\u0430\u0435\u0442\u0441\u044F \u0440\u0430\u0437\u0434\u0435\u043B \u0441 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430\u043C\u0438, \u043A\u043E\u0442\u043E\u0440\u044B\u043C \u043D\u0435 \u043D\u0430\u0437\u043D\u0430\u0447\u0435\u043D\u0430 \u043D\u0438 \u043E\u0434\u043D\u0430 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F. \u0412\u0438\u0434\u0435\u043D \u0442\u043E\u043B\u044C\u043A\u043E \u0432 \u0440\u0435\u0436\u0438\u043C\u0430\u0445 \u0441 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u044F\u043C\u0438.",
   "mod.team.config_subtitle": "\u041F\u043E\u0434\u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A",
   "mod.team.config_subtitle_hint": "\u0421\u0442\u0440\u043E\u043A\u0430 \u043F\u043E\u0434 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u043E\u043C. \u041F\u0443\u0441\u0442\u043E \u2014 \u0441\u0442\u0440\u043E\u043A\u0438 \u043D\u0435 \u0431\u0443\u0434\u0435\u0442.",
   "mod.team.config_title": "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u044B",
@@ -785,15 +805,18 @@ var ru_default = {
 // locales/en.json
 var en_default = {
   "mod.team.categories": "Categories",
+  "mod.team.categories_display_hint": "Categories appear on the team page in the \xABBy categories\xBB and \xABEverything\xBB modes. The mode is chosen in the module settings.",
   "mod.team.categories_empty": "No categories: members are grouped by servers.",
   "mod.team.categories_hint": "Custom team sections like \u201CModeration\u201D or \u201CDevelopment\u201D. A member can join several.",
   "mod.team.category_add": "Add category",
   "mod.team.category_name": "Name",
   "mod.team.category_position": "Order",
   "mod.team.config_display": "Team display",
-  "mod.team.config_display_hint": "How members are grouped on the team page.",
+  "mod.team.config_display_hint": "How members are grouped on the team page. \xABBy categories\xBB hides the per-server split; while no category exists members are still grouped by server.",
   "mod.team.config_global": "Shared section heading",
   "mod.team.config_global_hint": "The title of the section with holders of staff site roles \u2014 those are not bound to a server.",
+  "mod.team.config_rest": "Title of the uncategorized section",
+  "mod.team.config_rest_hint": "The section holding members without a category. Visible only in the category modes.",
   "mod.team.config_subtitle": "Subheading",
   "mod.team.config_subtitle_hint": "The line under the heading. Empty means no line.",
   "mod.team.config_title": "Page heading",
@@ -858,9 +881,17 @@ var index_default = (0, import_server4.defineModule)({
       hint: "mod.team.config_global_hint"
     },
     {
+      key: "rest",
+      type: "string",
+      default: "\u0411\u0435\u0437 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438",
+      public: true,
+      label: "mod.team.config_rest",
+      hint: "mod.team.config_rest_hint"
+    },
+    {
       key: "display",
       type: "select",
-      default: "servers",
+      default: "categories",
       public: true,
       label: "mod.team.config_display",
       hint: "mod.team.config_display_hint",

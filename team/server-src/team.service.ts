@@ -73,7 +73,7 @@ export class TeamService {
     await this.memberCategories.insert(ids.map((categoryId) => ({ userUuid: uuid, categoryId })))
   }
 
-  async categorySections(): Promise<TeamSection[]> {
+  async categorySections(restTitle: string): Promise<TeamSection[]> {
     const [categories, members] = await Promise.all([this.listCategories(), core().staff.members()])
 
     if (!categories.length || !members.length) return []
@@ -82,6 +82,7 @@ export class TeamService {
     const byUuid = new Map(members.map((member) => [member.uuid, member]))
     const notes = await this.noteMap()
     const sections = new Map<number, TeamSection>()
+    const placed = new Set<string>()
 
     for (const category of categories) {
       sections.set(category.id, { id: `category-${category.id}`, title: category.name, icon: null, members: [] })
@@ -93,12 +94,25 @@ export class TeamService {
 
       if (!member || !section) continue
 
+      placed.add(member.uuid)
       section.members.push(this.card(member, notes))
     }
 
     for (const section of sections.values()) section.members = this.sortCards(section.members)
 
-    return [...sections.values()]
+    const rest = this.sorted(members).filter((member) => !placed.has(member.uuid))
+    const unique = new Map(rest.map((member) => [member.uuid, member]))
+    const result = [...sections.values()]
+
+    if (unique.size)
+      result.push({
+        id: 'uncategorized',
+        title: restTitle,
+        icon: null,
+        members: this.sortCards([...unique.values()].map((member) => this.card(member, notes))),
+      })
+
+    return result
   }
 
   private sortCards(cards: TeamCard[]): TeamCard[] {

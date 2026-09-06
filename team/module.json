@@ -8,7 +8,7 @@
     "ru": "Страница с составом команды: группы, участники, роли и описания",
     "en": "A page with the project team: groups, members, roles and notes"
   },
-  "version": "1.0.0",
+  "version": "1.1.0",
   "unicoreApi": "^1.4.0",
   "author": "UnicoreCMS",
   "license": "MIT",
@@ -45,9 +45,17 @@
       "hint": "mod.team.config_global_hint"
     },
     {
+      "key": "rest",
+      "type": "string",
+      "default": "Без категории",
+      "public": true,
+      "label": "mod.team.config_rest",
+      "hint": "mod.team.config_rest_hint"
+    },
+    {
       "key": "display",
       "type": "select",
-      "default": "servers",
+      "default": "categories",
       "public": true,
       "label": "mod.team.config_display",
       "hint": "mod.team.config_display_hint",

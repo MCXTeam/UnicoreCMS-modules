@@ -32,8 +32,10 @@ export class TeamController {
 
   @Public()
   @Get('categories-sections')
-  categorySections() {
-    return this.service.categorySections()
+  async categorySections() {
+    const title = (await core().config.get('public_mod_team_rest')) || 'Без категории'
+
+    return this.service.categorySections(title)
   }
 
   @Permissions(['mod.team.read'])

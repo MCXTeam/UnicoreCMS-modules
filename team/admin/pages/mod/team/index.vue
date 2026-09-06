@@ -98,10 +98,13 @@
       <div class="col-12">
         <div class="card">
           <div class="flex flex-column md:flex-row md:justify-content-between md:align-items-center gap-2 mb-3">
-            <h5 class="m-0 flex align-items-center gap-1">
-              {{ $t('mod.team.categories') }}
-              <i v-tooltip.right="$t('mod.team.categories_hint')" class="pi pi-question-circle text-color-secondary" />
-            </h5>
+            <div>
+              <h5 class="m-0 flex align-items-center gap-1">
+                {{ $t('mod.team.categories') }}
+                <i v-tooltip.right="$t('mod.team.categories_hint')" class="pi pi-question-circle text-color-secondary" />
+              </h5>
+              <small class="text-color-secondary">{{ $t('mod.team.categories_display_hint') }}</small>
+            </div>
             <div class="flex flex-wrap align-items-center gap-2">
               <InputText
                 v-model="newCategory.name"

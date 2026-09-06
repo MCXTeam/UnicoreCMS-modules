@@ -37,9 +37,17 @@ export default defineModule({
       hint: 'mod.team.config_global_hint',
     },
     {
+      key: 'rest',
+      type: 'string',
+      default: 'Без категории',
+      public: true,
+      label: 'mod.team.config_rest',
+      hint: 'mod.team.config_rest_hint',
+    },
+    {
       key: 'display',
       type: 'select',
-      default: 'servers',
+      default: 'categories',
       public: true,
       label: 'mod.team.config_display',
       hint: 'mod.team.config_display_hint',
