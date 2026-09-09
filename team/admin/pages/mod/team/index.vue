@@ -30,7 +30,7 @@
           </Column>
           <Column :header="$t('mod.team.member_categories')">
             <template #body="{ data }">
-              <span v-if="(memberCategoryIds[data.uuid] || []).length">{{ categoryNames(data.uuid) }}</span>
+              <span v-if="hasCategories(data.uuid)">{{ categoryNames(data.uuid) }}</span>
               <span v-else class="text-color-secondary">—</span>
             </template>
           </Column>
@@ -72,6 +72,13 @@
               </label>
               <Textarea v-model="note.text" :autoResize="true" rows="3" />
             </div>
+            <div class="field-checkbox">
+              <Checkbox :binary="true" v-model="note.global" inputId="team-global" />
+              <label for="team-global" class="mb-0 flex align-items-center gap-1">
+                {{ $t('mod.team.member_global') }}
+                <i v-tooltip.right="$t('mod.team.member_global_hint')" class="pi pi-question-circle text-color-secondary" />
+              </label>
+            </div>
             <div class="field" v-if="categories.length">
               <label>{{ $t('mod.team.member_categories') }}</label>
               <MultiSelect
@@ -83,6 +90,22 @@
                 :maxSelectedLabels="3"
                 class="w-full"
               />
+            </div>
+            <div class="field" v-if="indexRows.length">
+              <label class="flex align-items-center gap-1">
+                {{ $t('mod.team.member_index') }}
+                <i v-tooltip.right="$t('mod.team.member_index_hint')" class="pi pi-question-circle text-color-secondary" />
+              </label>
+              <div v-for="row in indexRows" :key="row.id" class="team-index">
+                <span v-text="row.name" />
+                <InputNumber
+                  :modelValue="note.indexes[row.id]"
+                  :min="0"
+                  :placeholder="$t('mod.team.member_index_auto')"
+                  showButtons
+                  @update:modelValue="(value) => (note.indexes[row.id] = value)"
+                />
+              </div>
             </div>
           </template>
           <template #translations>
@@ -176,6 +199,8 @@ import { useToast } from 'primevue/usetoast'
 
 const NOTE_FIELDS = [{ path: 'text', label: 'mod.team.member_note', type: 'textarea' }]
 
+const GLOBAL_ROW = 'global'
+
 export default {
   setup() {
     const { $t } = useNuxtApp()
@@ -194,11 +219,12 @@ export default {
       loading: true,
       noteDialog: false,
       section: 'main',
-      note: { uuid: null, text: null },
+      note: { uuid: null, text: null, global: false, categories: [], indexes: {} },
       categories: [],
       categoriesLoading: false,
       newCategory: { name: '', position: null },
       memberCategoryIds: {},
+      globalTitle: '',
     }
   },
   computed: {
@@ -207,6 +233,15 @@ export default {
         { key: 'main', label: 'admin.section_main', icon: 'pi pi-info-circle' },
         { key: 'translations', label: 'mod.team.translations', icon: 'pi pi-globe' },
       ]
+    },
+    indexRows() {
+      const rows = this.note.global ? [{ id: GLOBAL_ROW, name: this.globalTitle || this.$t('mod.team.member_global') }] : []
+
+      return rows.concat(
+        this.categories
+          .filter((category) => (this.note.categories || []).includes(category.id))
+          .map((category) => ({ id: category.id, name: category.name })),
+      )
     },
   },
   mounted() {
@@ -230,11 +265,15 @@ export default {
             this.$api
               .get(`/mod/team/members/${member.uuid}/categories`, { silent: true })
               .then((res) => [member.uuid, res.data])
-              .catch(() => [member.uuid, []]),
+              .catch(() => [member.uuid, { global: false, globalIndex: null, categories: [] }]),
           ),
         )
 
         this.memberCategoryIds = Object.fromEntries(pairs)
+        this.globalTitle = await this.$api
+          .get('/config', { silent: true })
+          .then((res) => (res.data || []).find((item) => item.key === 'public_mod_team_global')?.value || '')
+          .catch(() => '')
       } finally {
         this.loading = false
       }
@@ -252,12 +291,18 @@ export default {
       }
     },
     categoryNames(uuid) {
-      const ids = this.memberCategoryIds[uuid] || []
+      const settings = this.memberCategoryIds[uuid] || {}
+      const ids = (settings.categories || []).map((item) => item.categoryId)
+      const names = this.categories.filter((category) => ids.includes(category.id)).map((category) => category.name)
 
-      return this.categories
-        .filter((category) => ids.includes(category.id))
-        .map((category) => category.name)
-        .join(', ')
+      if (settings.global) names.unshift(this.globalTitle || this.$t('mod.team.member_global'))
+
+      return names.join(', ')
+    },
+    hasCategories(uuid) {
+      const settings = this.memberCategoryIds[uuid] || {}
+
+      return Boolean(settings.global) || Boolean((settings.categories || []).length)
     },
     async addCategory() {
       const name = String(this.newCategory.name || '').trim()
@@ -315,14 +360,37 @@ export default {
     },
     async openNote(member) {
       this.section = 'main'
-      this.note = { uuid: member.uuid, text: member.note?.text || null }
+      this.note = { uuid: member.uuid, text: member.note?.text || null, global: false, categories: [], indexes: {} }
       this.translations.attach(this.note)
       await this.translations.load(member.uuid)
-      this.note.categories = await this.$api
+
+      const settings = await this.$api
         .get(`/mod/team/members/${member.uuid}/categories`, { silent: true })
         .then((res) => res.data)
-        .catch(() => [])
+        .catch(() => ({ global: false, globalIndex: null, categories: [] }))
+
+      this.note.global = Boolean(settings.global)
+      this.note.categories = (settings.categories || []).map((item) => item.categoryId)
+      this.note.indexes = Object.fromEntries([
+        ...(settings.global && settings.globalIndex !== null ? [[GLOBAL_ROW, settings.globalIndex]] : []),
+        ...(settings.categories || [])
+          .filter((item) => item.sortIndex !== null)
+          .map((item) => [item.categoryId, item.sortIndex]),
+      ])
       this.noteDialog = true
+    },
+    memberCategoriesPayload() {
+      const index = (id) => {
+        const value = this.note.indexes[id]
+
+        return value === null || value === undefined || value === '' ? undefined : Number(value)
+      }
+
+      return {
+        global: this.note.global,
+        globalIndex: this.note.global ? index(GLOBAL_ROW) : undefined,
+        categories: (this.note.categories || []).map((categoryId) => ({ categoryId, sortIndex: index(categoryId) })),
+      }
     },
     async saveNote() {
       this.loading = true
@@ -333,9 +401,7 @@ export default {
         .catch(() => false)
 
       if (ok) {
-        await this.$api
-          .put(`/mod/team/members/${this.note.uuid}/categories`, { categories: this.note.categories || [] })
-          .catch(() => {})
+        await this.$api.put(`/mod/team/members/${this.note.uuid}/categories`, this.memberCategoriesPayload()).catch(() => {})
 
         await this.load()
       }
@@ -353,3 +419,15 @@ export default {
   },
 }
 </script>
+
+<style scoped>
+.team-index {
+  display: grid;
+  grid-template-columns: 1fr 9rem;
+  gap: 10px;
+  align-items: center;
+}
+.team-index + .team-index {
+  margin-top: 8px;
+}
+</style>

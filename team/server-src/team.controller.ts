@@ -33,9 +33,9 @@ export class TeamController {
   @Public()
   @Get('categories-sections')
   async categorySections() {
-    const title = (await core().config.get('public_mod_team_rest')) || 'Без категории'
+    const [rest, global] = await Promise.all([core().config.get('public_mod_team_rest'), core().config.get('public_mod_team_global')])
 
-    return this.service.categorySections(title)
+    return this.service.categorySections(rest || 'Без категории', global || 'На всех серверах')
   }
 
   @Permissions(['mod.team.read'])
@@ -65,12 +65,12 @@ export class TeamController {
   @Permissions(['mod.team.read'])
   @Get('members/:uuid/categories')
   memberCategories(@Param('uuid') uuid: string) {
-    return this.service.memberCategoryIds(uuid)
+    return this.service.memberSettings(uuid)
   }
 
   @Permissions(['mod.team.write'])
   @Put('members/:uuid/categories')
   setMemberCategories(@Param('uuid') uuid: string, @Body() body: MemberCategoriesInput) {
-    return this.service.setMemberCategories(uuid, body.categories)
+    return this.service.setMemberCategories(uuid, body)
   }
 }

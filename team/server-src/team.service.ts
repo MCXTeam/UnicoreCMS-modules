@@ -6,8 +6,8 @@ import type { RoleAppearance, ServerRecord, StaffMember } from 'unicore-api'
 import { TeamNoteInput } from './dto/note.input'
 import { TeamNote } from './entities/note.entity'
 import { TeamCategory } from './entities/category.entity'
-import { TeamMemberCategory } from './entities/member-category.entity'
-import { CategoryInput } from './dto/category.input'
+import { GLOBAL_CATEGORY_ID, TeamMemberCategory } from './entities/member-category.entity'
+import { CategoryInput, MemberCategoriesInput } from './dto/category.input'
 
 export interface TeamCard {
   uuid: string
@@ -30,6 +30,17 @@ export interface TeamCategoryRow {
   id: number
   name: string
   position: number
+}
+
+interface TeamEntry {
+  member: StaffMember
+  index: number | null
+}
+
+export interface TeamMemberSettings {
+  global: boolean
+  globalIndex: number | null
+  categories: { categoryId: number; sortIndex: number | null }[]
 }
 
 const GLOBAL = 'global'
@@ -62,61 +73,112 @@ export class TeamService {
     await this.categories.delete({ id })
   }
 
-  memberCategoryIds(uuid: string): Promise<number[]> {
-    return this.memberCategories
-      .find({ where: { userUuid: uuid } })
-      .then((rows) => rows.map((row) => row.categoryId))
+  async memberSettings(uuid: string): Promise<TeamMemberSettings> {
+    const rows = await this.memberCategories.find({ where: { userUuid: uuid } })
+    const global = rows.find((row) => row.categoryId === GLOBAL_CATEGORY_ID)
+
+    return {
+      global: Boolean(global),
+      globalIndex: global?.sortIndex ?? null,
+      categories: rows
+        .filter((row) => row.categoryId !== GLOBAL_CATEGORY_ID)
+        .map((row) => ({ categoryId: row.categoryId, sortIndex: row.sortIndex ?? null })),
+    }
   }
 
-  async setMemberCategories(uuid: string, ids: number[]): Promise<void> {
+  async setMemberCategories(uuid: string, input: MemberCategoriesInput): Promise<void> {
+    const unique = new Map<number, number | null>()
+
+    if (input.global) unique.set(GLOBAL_CATEGORY_ID, input.globalIndex ?? null)
+
+    for (const item of input.categories || [])
+      if (item.categoryId !== GLOBAL_CATEGORY_ID) unique.set(item.categoryId, item.sortIndex ?? null)
+
     await this.memberCategories.delete({ userUuid: uuid })
-    await this.memberCategories.insert(ids.map((categoryId) => ({ userUuid: uuid, categoryId })))
+
+    if (!unique.size) return
+
+    await this.memberCategories.insert(
+      [...unique.entries()].map(([categoryId, sortIndex]) => ({ userUuid: uuid, categoryId, sortIndex })),
+    )
   }
 
-  async categorySections(restTitle: string): Promise<TeamSection[]> {
+  async categorySections(restTitle: string, globalTitle: string): Promise<TeamSection[]> {
     const [categories, members] = await Promise.all([this.listCategories(), core().staff.members()])
 
-    if (!categories.length || !members.length) return []
+    if (!members.length) return []
 
     const links = await this.memberCategories.find()
+
+    if (!categories.length && !links.some((link) => link.categoryId === GLOBAL_CATEGORY_ID)) return []
+
     const byUuid = new Map(members.map((member) => [member.uuid, member]))
     const notes = await this.noteMap()
-    const sections = new Map<number, TeamSection>()
+    const sections = new Map<number, { section: TeamSection; entries: TeamEntry[] }>()
     const placed = new Set<string>()
 
+    sections.set(GLOBAL_CATEGORY_ID, {
+      section: { id: 'global', title: globalTitle, icon: null, members: [] },
+      entries: [],
+    })
+
     for (const category of categories) {
-      sections.set(category.id, { id: `category-${category.id}`, title: category.name, icon: null, members: [] })
+      sections.set(category.id, {
+        section: { id: `category-${category.id}`, title: category.name, icon: null, members: [] },
+        entries: [],
+      })
     }
 
     for (const link of links) {
       const member = byUuid.get(link.userUuid)
-      const section = sections.get(link.categoryId)
+      const bucket = sections.get(link.categoryId)
 
-      if (!member || !section) continue
+      if (!member || !bucket) continue
 
       placed.add(member.uuid)
-      section.members.push(this.card(member, notes))
+      bucket.entries.push({ member, index: link.sortIndex ?? null })
     }
 
-    for (const section of sections.values()) section.members = this.sortCards(section.members)
+    const result: TeamSection[] = []
 
-    const rest = this.sorted(members).filter((member) => !placed.has(member.uuid))
+    for (const [id, bucket] of sections) {
+      if (id === GLOBAL_CATEGORY_ID && !bucket.entries.length) continue
+
+      bucket.section.members = this.orderEntries(bucket.entries).map((entry) => this.card(entry.member, notes))
+      result.push(bucket.section)
+    }
+
+    const rest = members.filter((member) => !placed.has(member.uuid))
     const unique = new Map(rest.map((member) => [member.uuid, member]))
-    const result = [...sections.values()]
 
     if (unique.size)
       result.push({
         id: 'uncategorized',
         title: restTitle,
         icon: null,
-        members: this.sortCards([...unique.values()].map((member) => this.card(member, notes))),
+        members: this.orderEntries([...unique.values()].map((member) => ({ member, index: null }))).map((entry) =>
+          this.card(entry.member, notes),
+        ),
       })
 
     return result
   }
 
-  private sortCards(cards: TeamCard[]): TeamCard[] {
-    return cards.slice().sort((left, right) => left.username.localeCompare(right.username))
+  private orderEntries(entries: TeamEntry[]): TeamEntry[] {
+    const unique = new Map<string, TeamEntry>()
+
+    for (const entry of entries) if (!unique.has(entry.member.uuid)) unique.set(entry.member.uuid, entry)
+
+    return [...unique.values()].sort((left, right) => {
+      if (left.index !== right.index) {
+        if (left.index === null) return 1
+        if (right.index === null) return -1
+
+        return left.index - right.index
+      }
+
+      return right.member.priority - left.member.priority || left.member.username.localeCompare(right.member.username)
+    })
   }
 
   async sections(globalTitle: string): Promise<TeamSection[]> {
@@ -124,23 +186,26 @@ export class TeamService {
 
     if (!members.length) return []
 
-    const [notes, servers] = await Promise.all([this.noteMap(), this.serverMap(members)])
+    const [notes, servers, pinned] = await Promise.all([this.noteMap(), this.serverMap(members), this.globalMembers()])
     const sections = new Map<string, TeamSection>()
 
+    const place = (key: string, title: string, icon: string | null, member: StaffMember) => {
+      if (!sections.has(key)) sections.set(key, { id: key, title, icon, members: [] })
+
+      const section = sections.get(key)
+
+      if (section.members.some((card) => card.uuid === member.uuid)) return
+
+      section.members.push(this.card(member, notes))
+    }
+
     for (const member of this.sorted(members)) {
-      const key = member.serverId || GLOBAL
       const server = member.serverId ? servers.get(member.serverId) : null
 
       if (member.serverId && !server) continue
 
-      if (!sections.has(key))
-        sections.set(key, { id: key, title: server ? server.name : globalTitle, icon: server?.icon || null, members: [] })
-
-      const section = sections.get(key)
-
-      if (section.members.some((card) => card.uuid === member.uuid)) continue
-
-      section.members.push(this.card(member, notes))
+      if (server) place(server.id, server.name, server.icon || null, member)
+      if (!server || pinned.has(member.uuid)) place(GLOBAL, globalTitle, null, member)
     }
 
     const order = [...servers.keys()]
@@ -191,6 +256,12 @@ export class TeamService {
 
   private sorted(members: StaffMember[]): StaffMember[] {
     return members.slice().sort((left, right) => right.priority - left.priority || left.username.localeCompare(right.username))
+  }
+
+  private async globalMembers(): Promise<Set<string>> {
+    const rows = await this.memberCategories.find({ where: { categoryId: GLOBAL_CATEGORY_ID } })
+
+    return new Set(rows.map((row) => row.userUuid))
   }
 
   private async noteMap(): Promise<Map<string, TeamNote>> {

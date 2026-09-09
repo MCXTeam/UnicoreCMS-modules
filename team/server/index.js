@@ -177,10 +177,12 @@ function _ts_metadata3(metadataKey, metadataValue) {
   }
 }
 __name(_ts_metadata3, "_ts_metadata");
+var GLOBAL_CATEGORY_ID = 0;
 var _TeamMemberCategory = class _TeamMemberCategory {
   constructor() {
     __publicField(this, "userUuid");
     __publicField(this, "categoryId");
+    __publicField(this, "sortIndex");
   }
 };
 __name(_TeamMemberCategory, "TeamMemberCategory");
@@ -197,6 +199,13 @@ _ts_decorate3([
   }),
   _ts_metadata3("design:type", Number)
 ], TeamMemberCategory.prototype, "categoryId", void 0);
+_ts_decorate3([
+  (0, import_typeorm3.Column)({
+    name: "sort_index",
+    nullable: true
+  }),
+  _ts_metadata3("design:type", Number)
+], TeamMemberCategory.prototype, "sortIndex", void 0);
 TeamMemberCategory = _ts_decorate3([
   (0, import_typeorm3.Entity)({
     name: "mod_team_member_categories"
@@ -213,6 +222,7 @@ var import_unicore_api2 = require("unicore-api");
 var import_server3 = require("unicore-api/server");
 
 // server-src/dto/category.input.ts
+var import_class_transformer = require("class-transformer");
 var import_class_validator = require("class-validator");
 function _ts_decorate4(decorators, target, key, desc) {
   var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
@@ -255,20 +265,54 @@ _ts_decorate4([
   (0, import_class_validator.Min)(0),
   _ts_metadata4("design:type", Number)
 ], CategoryInput.prototype, "position", void 0);
+var _MemberCategoryInput = class _MemberCategoryInput {
+  constructor() {
+    __publicField(this, "categoryId");
+    __publicField(this, "sortIndex");
+  }
+};
+__name(_MemberCategoryInput, "MemberCategoryInput");
+var MemberCategoryInput = _MemberCategoryInput;
+_ts_decorate4([
+  (0, import_class_validator.IsDefined)(),
+  (0, import_class_validator.IsInt)(),
+  (0, import_class_validator.Min)(0),
+  _ts_metadata4("design:type", Number)
+], MemberCategoryInput.prototype, "categoryId", void 0);
+_ts_decorate4([
+  (0, import_class_validator.IsOptional)(),
+  (0, import_class_validator.IsInt)(),
+  (0, import_class_validator.Min)(0),
+  _ts_metadata4("design:type", Number)
+], MemberCategoryInput.prototype, "sortIndex", void 0);
 var _MemberCategoriesInput = class _MemberCategoriesInput {
   constructor() {
     __publicField(this, "categories");
+    __publicField(this, "global");
+    __publicField(this, "globalIndex");
   }
 };
 __name(_MemberCategoriesInput, "MemberCategoriesInput");
 var MemberCategoriesInput = _MemberCategoriesInput;
 _ts_decorate4([
   (0, import_class_validator.IsDefined)(),
-  (0, import_class_validator.IsInt)({
+  (0, import_class_validator.ValidateNested)({
     each: true
   }),
+  (0, import_class_transformer.Type)(() => MemberCategoryInput),
   _ts_metadata4("design:type", Array)
 ], MemberCategoriesInput.prototype, "categories", void 0);
+_ts_decorate4([
+  (0, import_class_validator.IsOptional)(),
+  (0, import_class_validator.IsBoolean)(),
+  _ts_metadata4("design:type", Boolean)
+], MemberCategoriesInput.prototype, "global", void 0);
+_ts_decorate4([
+  (0, import_class_validator.IsOptional)(),
+  (0, import_class_validator.IsInt)(),
+  (0, import_class_validator.Min)(0),
+  _ts_metadata4("design:type", Number)
+], MemberCategoriesInput.prototype, "globalIndex", void 0);
 
 // server-src/dto/note.input.ts
 var import_class_validator2 = require("class-validator");
@@ -373,29 +417,46 @@ var _TeamService = class _TeamService {
       id
     });
   }
-  memberCategoryIds(uuid) {
-    return this.memberCategories.find({
+  async memberSettings(uuid) {
+    const rows = await this.memberCategories.find({
       where: {
         userUuid: uuid
       }
-    }).then((rows) => rows.map((row) => row.categoryId));
+    });
+    const global = rows.find((row) => row.categoryId === GLOBAL_CATEGORY_ID);
+    return {
+      global: Boolean(global),
+      globalIndex: global?.sortIndex ?? null,
+      categories: rows.filter((row) => row.categoryId !== GLOBAL_CATEGORY_ID).map((row) => ({
+        categoryId: row.categoryId,
+        sortIndex: row.sortIndex ?? null
+      }))
+    };
   }
-  async setMemberCategories(uuid, ids) {
+  async setMemberCategories(uuid, input) {
+    const unique = /* @__PURE__ */ new Map();
+    if (input.global) unique.set(GLOBAL_CATEGORY_ID, input.globalIndex ?? null);
+    for (const item of input.categories || []) if (item.categoryId !== GLOBAL_CATEGORY_ID) unique.set(item.categoryId, item.sortIndex ?? null);
     await this.memberCategories.delete({
       userUuid: uuid
     });
-    await this.memberCategories.insert(ids.map((categoryId) => ({
+    if (!unique.size) return;
+    await this.memberCategories.insert([
+      ...unique.entries()
+    ].map(([categoryId, sortIndex]) => ({
       userUuid: uuid,
-      categoryId
+      categoryId,
+      sortIndex
     })));
   }
-  async categorySections(restTitle) {
+  async categorySections(restTitle, globalTitle) {
     const [categories, members] = await Promise.all([
       this.listCategories(),
       (0, import_unicore_api.core)().staff.members()
     ]);
-    if (!categories.length || !members.length) return [];
+    if (!members.length) return [];
     const links = await this.memberCategories.find();
+    if (!categories.length && !links.some((link) => link.categoryId === GLOBAL_CATEGORY_ID)) return [];
     const byUuid = new Map(members.map((member) => [
       member.uuid,
       member
@@ -403,64 +464,99 @@ var _TeamService = class _TeamService {
     const notes = await this.noteMap();
     const sections = /* @__PURE__ */ new Map();
     const placed = /* @__PURE__ */ new Set();
-    for (const category of categories) {
-      sections.set(category.id, {
-        id: `category-${category.id}`,
-        title: category.name,
+    sections.set(GLOBAL_CATEGORY_ID, {
+      section: {
+        id: "global",
+        title: globalTitle,
         icon: null,
         members: []
+      },
+      entries: []
+    });
+    for (const category of categories) {
+      sections.set(category.id, {
+        section: {
+          id: `category-${category.id}`,
+          title: category.name,
+          icon: null,
+          members: []
+        },
+        entries: []
       });
     }
     for (const link of links) {
       const member = byUuid.get(link.userUuid);
-      const section = sections.get(link.categoryId);
-      if (!member || !section) continue;
+      const bucket = sections.get(link.categoryId);
+      if (!member || !bucket) continue;
       placed.add(member.uuid);
-      section.members.push(this.card(member, notes));
+      bucket.entries.push({
+        member,
+        index: link.sortIndex ?? null
+      });
     }
-    for (const section of sections.values()) section.members = this.sortCards(section.members);
-    const rest = this.sorted(members).filter((member) => !placed.has(member.uuid));
+    const result = [];
+    for (const [id, bucket] of sections) {
+      if (id === GLOBAL_CATEGORY_ID && !bucket.entries.length) continue;
+      bucket.section.members = this.orderEntries(bucket.entries).map((entry) => this.card(entry.member, notes));
+      result.push(bucket.section);
+    }
+    const rest = members.filter((member) => !placed.has(member.uuid));
     const unique = new Map(rest.map((member) => [
       member.uuid,
       member
     ]));
-    const result = [
-      ...sections.values()
-    ];
     if (unique.size) result.push({
       id: "uncategorized",
       title: restTitle,
       icon: null,
-      members: this.sortCards([
+      members: this.orderEntries([
         ...unique.values()
-      ].map((member) => this.card(member, notes)))
+      ].map((member) => ({
+        member,
+        index: null
+      }))).map((entry) => this.card(entry.member, notes))
     });
     return result;
   }
-  sortCards(cards) {
-    return cards.slice().sort((left, right) => left.username.localeCompare(right.username));
+  orderEntries(entries) {
+    const unique = /* @__PURE__ */ new Map();
+    for (const entry of entries) if (!unique.has(entry.member.uuid)) unique.set(entry.member.uuid, entry);
+    return [
+      ...unique.values()
+    ].sort((left, right) => {
+      if (left.index !== right.index) {
+        if (left.index === null) return 1;
+        if (right.index === null) return -1;
+        return left.index - right.index;
+      }
+      return right.member.priority - left.member.priority || left.member.username.localeCompare(right.member.username);
+    });
   }
   async sections(globalTitle) {
     const members = await (0, import_unicore_api.core)().staff.members();
     if (!members.length) return [];
-    const [notes, servers] = await Promise.all([
+    const [notes, servers, pinned] = await Promise.all([
       this.noteMap(),
-      this.serverMap(members)
+      this.serverMap(members),
+      this.globalMembers()
     ]);
     const sections = /* @__PURE__ */ new Map();
-    for (const member of this.sorted(members)) {
-      const key = member.serverId || GLOBAL;
-      const server = member.serverId ? servers.get(member.serverId) : null;
-      if (member.serverId && !server) continue;
+    const place = /* @__PURE__ */ __name((key, title, icon, member) => {
       if (!sections.has(key)) sections.set(key, {
         id: key,
-        title: server ? server.name : globalTitle,
-        icon: server?.icon || null,
+        title,
+        icon,
         members: []
       });
       const section = sections.get(key);
-      if (section.members.some((card) => card.uuid === member.uuid)) continue;
+      if (section.members.some((card) => card.uuid === member.uuid)) return;
       section.members.push(this.card(member, notes));
+    }, "place");
+    for (const member of this.sorted(members)) {
+      const server = member.serverId ? servers.get(member.serverId) : null;
+      if (member.serverId && !server) continue;
+      if (server) place(server.id, server.name, server.icon || null, member);
+      if (!server || pinned.has(member.uuid)) place(GLOBAL, globalTitle, null, member);
     }
     const order = [
       ...servers.keys()
@@ -510,6 +606,14 @@ var _TeamService = class _TeamService {
   }
   sorted(members) {
     return members.slice().sort((left, right) => right.priority - left.priority || left.username.localeCompare(right.username));
+  }
+  async globalMembers() {
+    const rows = await this.memberCategories.find({
+      where: {
+        categoryId: GLOBAL_CATEGORY_ID
+      }
+    });
+    return new Set(rows.map((row) => row.userUuid));
   }
   async noteMap() {
     const rows = await this.notes.find();
@@ -585,8 +689,11 @@ var _TeamController = class _TeamController {
     return this.service.saveNote(uuid, body);
   }
   async categorySections() {
-    const title = await (0, import_unicore_api2.core)().config.get("public_mod_team_rest") || "\u0411\u0435\u0437 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438";
-    return this.service.categorySections(title);
+    const [rest, global] = await Promise.all([
+      (0, import_unicore_api2.core)().config.get("public_mod_team_rest"),
+      (0, import_unicore_api2.core)().config.get("public_mod_team_global")
+    ]);
+    return this.service.categorySections(rest || "\u0411\u0435\u0437 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438", global || "\u041D\u0430 \u0432\u0441\u0435\u0445 \u0441\u0435\u0440\u0432\u0435\u0440\u0430\u0445");
   }
   listCategories() {
     return this.service.listCategories();
@@ -601,10 +708,10 @@ var _TeamController = class _TeamController {
     return this.service.removeCategory(id);
   }
   memberCategories(uuid) {
-    return this.service.memberCategoryIds(uuid);
+    return this.service.memberSettings(uuid);
   }
   setMemberCategories(uuid, body) {
-    return this.service.setMemberCategories(uuid, body.categories);
+    return this.service.setMemberCategories(uuid, body);
   }
 };
 __name(_TeamController, "TeamController");
@@ -786,6 +893,11 @@ var ru_default = {
   "mod.team.empty": "\u0412 \u043A\u043E\u043C\u0430\u043D\u0434\u0435 \u043F\u043E\u043A\u0430 \u043D\u0438\u043A\u043E\u0433\u043E \u043D\u0435\u0442",
   "mod.team.empty_hint": "\u041E\u0442\u043C\u0435\u0442\u044C\u0442\u0435 \u0440\u043E\u043B\u044C \u0438\u043B\u0438 \u043F\u0440\u0438\u0432\u0438\u043B\u0435\u0433\u0438\u044E \u043A\u0430\u043A \u0441\u043B\u0443\u0436\u0435\u0431\u043D\u0443\u044E, \u0438 \u0435\u0451 \u043E\u0431\u043B\u0430\u0434\u0430\u0442\u0435\u043B\u0438 \u043F\u043E\u044F\u0432\u044F\u0442\u0441\u044F \u0437\u0434\u0435\u0441\u044C.",
   "mod.team.member_categories": "\u041A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0430",
+  "mod.team.member_global": "\u041F\u043E\u043A\u0430\u0437\u044B\u0432\u0430\u0442\u044C \u0432 \u0440\u0430\u0437\u0434\u0435\u043B\u0435 \xAB\u041D\u0430 \u0432\u0441\u0435\u0445 \u0441\u0435\u0440\u0432\u0435\u0440\u0430\u0445\xBB",
+  "mod.team.member_global_hint": "\u0423\u0447\u0430\u0441\u0442\u043D\u0438\u043A \u043F\u043E\u043F\u0430\u0434\u0451\u0442 \u0432 \u0441\u0442\u0430\u043D\u0434\u0430\u0440\u0442\u043D\u044B\u0439 \u0440\u0430\u0437\u0434\u0435\u043B, \u0434\u0430\u0436\u0435 \u0435\u0441\u043B\u0438 \u043F\u0440\u0438\u0432\u044F\u0437\u0430\u043D \u043A \u043A\u043E\u043D\u043A\u0440\u0435\u0442\u043D\u043E\u043C\u0443 \u0441\u0435\u0440\u0432\u0435\u0440\u0443. \u0414\u043E\u043F\u043E\u043B\u043D\u0438\u0442\u0435\u043B\u044C\u043D\u044B\u0435 \u043A\u0430\u0442\u0435\u0433\u043E\u0440\u0438\u0438 \u043F\u0440\u0438 \u044D\u0442\u043E\u043C \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F.",
+  "mod.team.member_index": "\u041F\u043E\u0440\u044F\u0434\u043E\u043A \u0432 \u0440\u0430\u0437\u0434\u0435\u043B\u0430\u0445",
+  "mod.team.member_index_auto": "\u0410\u0432\u0442\u043E",
+  "mod.team.member_index_hint": "\u041C\u0435\u043D\u044C\u0448\u0435 \u2014 \u0432\u044B\u0448\u0435. \u041F\u0443\u0441\u0442\u043E \u2014 \u0443\u0447\u0430\u0441\u0442\u043D\u0438\u043A \u0432\u0441\u0442\u0430\u0451\u0442 \u043F\u043E\u0441\u043B\u0435 \u0442\u0435\u0445, \u0443 \u043A\u043E\u0433\u043E \u0438\u043D\u0434\u0435\u043A\u0441 \u0437\u0430\u0434\u0430\u043D, \u043F\u043E \u043F\u0440\u0438\u043E\u0440\u0438\u0442\u0435\u0442\u0443 \u0440\u043E\u043B\u0438. \u041E\u0434\u0438\u043D\u0430\u043A\u043E\u0432\u044B\u0435 \u0438\u043D\u0434\u0435\u043A\u0441\u044B \u0441\u043E\u0440\u0442\u0438\u0440\u043E\u0432\u043A\u0443 \u043D\u0435 \u043B\u043E\u043C\u0430\u044E\u0442.",
   "mod.team.member_label": "\u0420\u043E\u043B\u044C",
   "mod.team.member_note": "\u041E\u043F\u0438\u0441\u0430\u043D\u0438\u0435",
   "mod.team.member_note_hint": "\u0421\u0442\u0440\u043E\u043A\u0430 \u043F\u043E\u0434 \u0440\u043E\u043B\u044C\u044E: \u0447\u0435\u043C \u0447\u0435\u043B\u043E\u0432\u0435\u043A \u0437\u0430\u043D\u0438\u043C\u0430\u0435\u0442\u0441\u044F. \u041F\u0443\u0441\u0442\u043E \u2014 \u0441\u0442\u0440\u043E\u043A\u0438 \u043D\u0435 \u0431\u0443\u0434\u0435\u0442.",
@@ -824,6 +936,11 @@ var en_default = {
   "mod.team.empty": "The team is empty",
   "mod.team.empty_hint": "Mark a role or a privilege as staff and its holders show up here.",
   "mod.team.member_categories": "Member categories",
+  "mod.team.member_global": "Show in the \xABEverywhere\xBB section",
+  "mod.team.member_global_hint": "The member also lands in the standard section even when bound to a server. Extra categories still apply.",
+  "mod.team.member_index": "Order inside sections",
+  "mod.team.member_index_auto": "Auto",
+  "mod.team.member_index_hint": "Lower goes higher. Empty \u2014 the member follows those with an index, ordered by role priority. Equal indexes do not break the order.",
   "mod.team.member_label": "Role",
   "mod.team.member_note": "Note",
   "mod.team.member_note_hint": "The line under the role: what the person does. Empty means no line.",

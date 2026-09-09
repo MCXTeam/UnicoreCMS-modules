@@ -1,4 +1,5 @@
-import { IsDefined, IsInt, IsOptional, IsString, MaxLength, Min, MinLength } from 'class-validator'
+import { Type } from 'class-transformer'
+import { IsBoolean, IsDefined, IsInt, IsOptional, IsString, MaxLength, Min, MinLength, ValidateNested } from 'class-validator'
 
 export class CategoryInput {
   @IsDefined()
@@ -13,8 +14,30 @@ export class CategoryInput {
   position?: number
 }
 
+export class MemberCategoryInput {
+  @IsDefined()
+  @IsInt()
+  @Min(0)
+  categoryId: number
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  sortIndex?: number
+}
+
 export class MemberCategoriesInput {
   @IsDefined()
-  @IsInt({ each: true })
-  categories: number[]
+  @ValidateNested({ each: true })
+  @Type(() => MemberCategoryInput)
+  categories: MemberCategoryInput[]
+
+  @IsOptional()
+  @IsBoolean()
+  global?: boolean
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  globalIndex?: number
 }

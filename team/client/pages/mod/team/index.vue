@@ -42,7 +42,7 @@ const sections = computed(() => (data.value || []).filter((section: any) => sect
 const categorySections = computed(() => (categoryData.value || []).filter((section: any) => section.members?.length))
 const visibleSections = computed(() => {
   if (mode.value === 'categories') return categorySections.value.length ? categorySections.value : sections.value
-  if (mode.value === 'all') return [...categorySections.value, ...sections.value]
+  if (mode.value === 'all') return [...categorySections.value.filter((section: any) => section.id !== 'global'), ...sections.value]
 
   return sections.value
 })
