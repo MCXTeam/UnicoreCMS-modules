@@ -1,0 +1,66 @@
+{
+  "id": "forum",
+  "name": {
+    "ru": "Форум",
+    "en": "Forum"
+  },
+  "description": {
+    "ru": "Форум с разделами любой вложенности, темами, реакциями и модерацией по ролям",
+    "en": "Forum with nested sections, topics, reactions and role-based moderation"
+  },
+  "version": "1.0.0",
+  "unicoreApi": "^1.12.0",
+  "author": "UnicoreCMS",
+  "license": "MIT",
+  "server": "./server/index.js",
+  "locales": "./locales",
+  "componentPrefix": "ModForum",
+  "permissions": [
+    {
+      "key": "mod.forum.read",
+      "granted": true
+    },
+    {
+      "key": "mod.forum.write",
+      "granted": true
+    },
+    {
+      "key": "mod.forum.moderate",
+      "danger": true
+    },
+    {
+      "key": "mod.forum.manage",
+      "danger": true
+    }
+  ],
+  "config": [
+    {
+      "key": "title",
+      "type": "string",
+      "default": "Форум",
+      "public": true,
+      "label": "mod.forum.config_title",
+      "hint": "mod.forum.config_title_hint"
+    },
+    {
+      "key": "subtitle",
+      "type": "string",
+      "default": "Обсуждения, вопросы и всё, что не помещается в чат",
+      "public": true,
+      "label": "mod.forum.config_subtitle",
+      "hint": "mod.forum.config_subtitle_hint"
+    },
+    {
+      "key": "nav_order",
+      "type": "number",
+      "default": 20,
+      "min": 0,
+      "max": 1000,
+      "public": true,
+      "label": "mod.forum.config_nav_order",
+      "hint": "mod.forum.config_nav_order_hint"
+    }
+  ],
+  "client": "./client",
+  "admin": "./admin"
+}
