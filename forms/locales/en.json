@@ -133,6 +133,8 @@
   "mod.forms.preset_complaint_summary": "Offender name, proof and description.",
   "mod.forms.preset_feedback": "Feedback",
   "mod.forms.preset_feedback_summary": "Topic, message and an email to reply to.",
+  "mod.forms.preset_partner": "Partner programme application",
+  "mod.forms.preset_partner_summary": "Channel, audience and content plan — for bloggers and streamers.",
   "mod.forms.preset_staff": "Staff application",
   "mod.forms.preset_staff_summary": "Age, server, experience and hours in game.",
   "mod.forms.preset_unban": "Unban request",

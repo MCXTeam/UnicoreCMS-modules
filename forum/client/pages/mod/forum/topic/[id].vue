@@ -19,8 +19,11 @@
         <Button v-if="can.moderate" size="small" outlined @click="patch({ pinned: !topic.pinned })">
           <i class="bx bx-pin me-1"></i> {{ topic.pinned ? $t('mod.forum.unpin') : $t('mod.forum.pin') }}
         </Button>
-        <Button v-if="can.close" size="small" outlined @click="patch({ closed: !topic.closed })">
-          <i class="bx bx-lock-alt me-1"></i> {{ topic.closed ? $t('mod.forum.reopen') : $t('mod.forum.close') }}
+        <Button v-if="can.close" size="small" outlined @click="patch({ closed: true })">
+          <i class="bx bx-lock-alt me-1"></i> {{ $t('mod.forum.close') }}
+        </Button>
+        <Button v-if="can.open" size="small" outlined @click="patch({ closed: false })">
+          <i class="bx bx-lock-open-alt me-1"></i> {{ $t('mod.forum.reopen') }}
         </Button>
         <Button v-if="can.moderate" size="small" outlined @click="mover = true">
           <i class="bx bx-transfer me-1"></i> {{ $t('mod.forum.move') }}
@@ -105,7 +108,7 @@ const answer = ref<HTMLElement | null>(null)
 const topic = computed(() => data.value?.topic || null)
 const posts = computed(() => data.value?.posts?.data || [])
 const meta = computed(() => data.value?.posts?.meta || null)
-const can = computed(() => data.value?.can || { reply: false, moderate: false, close: false })
+const can = computed(() => data.value?.can || { reply: false, moderate: false, close: false, open: false })
 const nodeOptions = computed(() => nodes.value)
 const valid = computed(() => plainLength(draft.value) >= POST_CONTENT_MIN_LENGTH)
 

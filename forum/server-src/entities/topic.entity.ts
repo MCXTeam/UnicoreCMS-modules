@@ -28,6 +28,9 @@ export class ForumTopic {
   @Column({ name: 'closed', default: false })
   closed: boolean
 
+  @Column({ name: 'closed_by', type: 'varchar', length: 36, nullable: true })
+  closed_by: string | null
+
   @Column({ name: 'views', default: 0 })
   views: number
 

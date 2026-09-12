@@ -2,7 +2,7 @@
   <article class="fm-post" :class="{ 'fm-post--deleted': post.deleted }">
     <aside class="fm-post__side">
       <SkinView2D class="fm-post__face" :width="64" :height="64" :skin="post.author?.skin" />
-      <PlayerName v-if="post.author" :username="post.author.username" :role="post.author.role" />
+      <PlayerName v-if="post.author" stacked :username="post.author.username" :role="post.author.role" />
       <span v-else class="fm-post__gone">{{ $t('common.unknown') }}</span>
     </aside>
 

@@ -8,8 +8,8 @@
     "ru": "Форум с разделами любой вложенности, темами, реакциями и модерацией по ролям",
     "en": "Forum with nested sections, topics, reactions and role-based moderation"
   },
-  "version": "1.0.0",
-  "unicoreApi": "^1.12.0",
+  "version": "1.1.0",
+  "unicoreApi": "^1.13.0",
   "author": "UnicoreCMS",
   "license": "MIT",
   "server": "./server/index.js",

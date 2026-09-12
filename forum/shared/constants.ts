@@ -22,9 +22,22 @@ export const UPLOADS_PER_HOUR = 30
 export const PERMISSION_READ = 'mod.forum.read'
 export const PERMISSION_WRITE = 'mod.forum.write'
 export const PERMISSION_MODERATE = 'mod.forum.moderate'
+export const PERMISSION_EDIT_POSTS = 'mod.forum.edit_posts'
 export const PERMISSION_MANAGE = 'mod.forum.manage'
+export const PERMISSION_LOGS = 'mod.forum.logs'
 
 export const CATEGORY = 'forum'
+
+export const AUDIT_CLASS = 'mod.forum'
+
+export const AUDIT_POST_EDIT = 'post.edit'
+export const AUDIT_POST_DELETE = 'post.delete'
+export const AUDIT_TOPIC_CLOSE = 'topic.close'
+export const AUDIT_TOPIC_DELETE = 'topic.delete'
+
+export const auditAction = (action: string): string => `mod.forum.${action}`
+
+export const SETTING_PLAYER_CLOSE = 'player_close'
 
 export const SANITIZE_DENY_ATTRIBUTES = ['style', 'id']
 

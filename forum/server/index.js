@@ -48,8 +48,17 @@ var UPLOADS_PER_HOUR = 30;
 var PERMISSION_READ = "mod.forum.read";
 var PERMISSION_WRITE = "mod.forum.write";
 var PERMISSION_MODERATE = "mod.forum.moderate";
+var PERMISSION_EDIT_POSTS = "mod.forum.edit_posts";
 var PERMISSION_MANAGE = "mod.forum.manage";
+var PERMISSION_LOGS = "mod.forum.logs";
 var CATEGORY = "forum";
+var AUDIT_CLASS = "mod.forum";
+var AUDIT_POST_EDIT = "post.edit";
+var AUDIT_POST_DELETE = "post.delete";
+var AUDIT_TOPIC_CLOSE = "topic.close";
+var AUDIT_TOPIC_DELETE = "topic.delete";
+var auditAction = /* @__PURE__ */ __name((action) => `mod.forum.${action}`, "auditAction");
+var SETTING_PLAYER_CLOSE = "player_close";
 var SANITIZE_DENY_ATTRIBUTES = [
   "style",
   "id"
@@ -345,6 +354,7 @@ var _ForumTopic = class _ForumTopic {
     __publicField(this, "title");
     __publicField(this, "pinned");
     __publicField(this, "closed");
+    __publicField(this, "closed_by");
     __publicField(this, "views");
     __publicField(this, "posts_count");
     __publicField(this, "last_post_id");
@@ -409,6 +419,15 @@ _ts_decorate2([
   }),
   _ts_metadata2("design:type", Boolean)
 ], ForumTopic.prototype, "closed", void 0);
+_ts_decorate2([
+  (0, import_typeorm2.Column)({
+    name: "closed_by",
+    type: "varchar",
+    length: 36,
+    nullable: true
+  }),
+  _ts_metadata2("design:type", Object)
+], ForumTopic.prototype, "closed_by", void 0);
 _ts_decorate2([
   (0, import_typeorm2.Column)({
     name: "views",
@@ -954,18 +973,18 @@ var import_server3 = require("unicore-api/server");
 
 // server-src/forum-access.ts
 var import_server2 = require("unicore-api/server");
-var GUEST = {
+var guest = /* @__PURE__ */ __name(() => ({
   uuid: null,
-  perms: [],
+  perms: (0, import_server2.defaultGrantedPermissions)(),
   roles: [],
   superuser: false
-};
+}), "guest");
 var viewerOf = /* @__PURE__ */ __name((user) => user ? {
   uuid: user.uuid,
   perms: user.perms || [],
   roles: user.roles || [],
   superuser: Boolean(user.superuser)
-} : GUEST, "viewerOf");
+} : guest(), "viewerOf");
 var allows = /* @__PURE__ */ __name((viewer, permission) => {
   if (viewer.superuser) return true;
   if (!permission) return true;
@@ -980,6 +999,7 @@ var moderates = /* @__PURE__ */ __name((viewer, branch) => {
 }, "moderates");
 var reads = /* @__PURE__ */ __name((viewer, branch) => {
   if (moderates(viewer, branch)) return true;
+  if (!allows(viewer, PERMISSION_READ)) return false;
   return branch.every((node) => !node.hidden && allows(viewer, node.read_permission));
 }, "reads");
 var writes = /* @__PURE__ */ __name((viewer, branch) => {
@@ -990,6 +1010,7 @@ var writes = /* @__PURE__ */ __name((viewer, branch) => {
   if (!allows(viewer, PERMISSION_WRITE)) return false;
   return branch.every((node) => allows(viewer, node.write_permission));
 }, "writes");
+var editsForeignPosts = /* @__PURE__ */ __name((viewer, branch) => manages(viewer) || moderates(viewer, branch) && allows(viewer, PERMISSION_EDIT_POSTS), "editsForeignPosts");
 
 // server-src/forum.service.ts
 function _ts_decorate8(decorators, target, key, desc) {
@@ -1019,6 +1040,7 @@ function _ts_param(paramIndex, decorator) {
 }
 __name(_ts_param, "_ts_param");
 var EXCERPT_LENGTH = 140;
+var PLAYER_CLOSE_KEY = `${(0, import_server3.modulePrefixes)("forum").config}${SETTING_PLAYER_CLOSE}`;
 var plain = /* @__PURE__ */ __name((html) => String(html || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim(), "plain");
 var excerpt = /* @__PURE__ */ __name((html) => {
   const text = plain(html);
@@ -1208,15 +1230,16 @@ var _ForumService = class _ForumService {
           reply_to: this.replyView(post.reply_to_id, replies, cards),
           reactions: reactions.get(post.id) || [],
           can: {
-            edit: this.canEditPost(viewer, post, moderator),
-            delete: this.canEditPost(viewer, post, moderator)
+            edit: this.canEditPost(viewer, post, branch),
+            delete: this.canRemovePost(viewer, post, moderator)
           }
         }))
       },
       can: {
         reply: !topic.closed && writes(viewer, branch),
         moderate: moderator,
-        close: moderator || viewer.uuid === topic.author_uuid && !topic.closed
+        close: await this.canCloseTopic(viewer, topic, moderator),
+        open: this.canOpenTopic(viewer, topic, moderator)
       }
     };
   }
@@ -1307,9 +1330,8 @@ var _ForumService = class _ForumService {
   }
   async editPost(id, user, input) {
     const viewer = viewerOf(user);
-    const { post, branch } = await this.locate(id, viewer);
-    const moderator = moderates(viewer, branch);
-    if (!this.canEditPost(viewer, post, moderator)) throw new import_common.ForbiddenException();
+    const { post, topic, branch } = await this.locate(id, viewer);
+    if (!this.canEditPost(viewer, post, branch)) throw new import_common.ForbiddenException();
     await this.posts.update({
       id: post.id
     }, {
@@ -1317,15 +1339,21 @@ var _ForumService = class _ForumService {
       edited_at: /* @__PURE__ */ new Date(),
       edited_by: user.uuid
     });
+    if (post.author_uuid !== user.uuid) this.log(AUDIT_POST_EDIT, user, topic, post.id, {
+      content: [
+        excerpt(post.content),
+        excerpt(input.content)
+      ]
+    });
     return {
       id: post.id
     };
   }
   async removePost(id, user) {
     const viewer = viewerOf(user);
-    const { post, branch } = await this.locate(id, viewer);
+    const { post, topic, branch } = await this.locate(id, viewer);
     const moderator = moderates(viewer, branch);
-    if (!this.canEditPost(viewer, post, moderator)) throw new import_common.ForbiddenException();
+    if (!this.canRemovePost(viewer, post, moderator)) throw new import_common.ForbiddenException();
     if (post.first) throw new import_common.BadRequestException("\u041F\u0435\u0440\u0432\u043E\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0443\u0434\u0430\u043B\u044F\u0435\u0442\u0441\u044F \u0432\u043C\u0435\u0441\u0442\u0435 \u0441 \u0442\u0435\u043C\u043E\u0439");
     await this.posts.update({
       id: post.id
@@ -1336,6 +1364,7 @@ var _ForumService = class _ForumService {
     await this.topics.decrement({
       id: post.topic_id
     }, "posts_count", 1);
+    if (post.author_uuid !== user.uuid) this.log(AUDIT_POST_DELETE, user, topic, post.id);
     return {
       id: post.id
     };
@@ -1382,7 +1411,18 @@ var _ForumService = class _ForumService {
     const author = viewer.uuid === topic.author_uuid;
     if (!moderator && !author) throw new import_common.ForbiddenException();
     const patch = {};
-    if (input.closed !== void 0) patch.closed = input.closed;
+    if (input.closed !== void 0 && input.closed !== topic.closed) {
+      if (input.closed && !await this.canCloseTopic(viewer, topic, moderator)) throw new import_common.ForbiddenException();
+      if (!input.closed && !this.canOpenTopic(viewer, topic, moderator)) throw new import_common.ForbiddenException();
+      patch.closed = input.closed;
+      patch.closed_by = input.closed ? viewer.uuid : null;
+      if (moderator) this.log(AUDIT_TOPIC_CLOSE, user, topic, topic.id, {
+        closed: [
+          topic.closed,
+          input.closed
+        ]
+      });
+    }
     if (input.title !== void 0 && (moderator || author)) patch.title = input.title;
     if (input.pinned !== void 0) {
       if (!moderator) throw new import_common.ForbiddenException();
@@ -1420,6 +1460,7 @@ var _ForumService = class _ForumService {
     }, {
       deleted_at: /* @__PURE__ */ new Date()
     });
+    if (topic.author_uuid !== user.uuid) this.log(AUDIT_TOPIC_DELETE, user, topic, topic.id);
     for (const item of branch) await this.nodes.update({
       id: item.id
     }, {
@@ -1635,10 +1676,44 @@ var _ForumService = class _ForumService {
       branch
     };
   }
-  canEditPost(viewer, post, moderator) {
+  canEditPost(viewer, post, branch) {
+    if (viewer.uuid && viewer.uuid === post.author_uuid) return !post.deleted_at;
+    return editsForeignPosts(viewer, branch);
+  }
+  canRemovePost(viewer, post, moderator) {
     if (moderator) return true;
     if (!viewer.uuid || viewer.uuid !== post.author_uuid) return false;
     return !post.deleted_at;
+  }
+  playerClose() {
+    return (0, import_server3.core)().config.getBoolean(PLAYER_CLOSE_KEY, true);
+  }
+  async canCloseTopic(viewer, topic, moderator) {
+    if (topic.closed) return false;
+    if (moderator) return true;
+    if (viewer.uuid !== topic.author_uuid) return false;
+    return this.playerClose();
+  }
+  canOpenTopic(viewer, topic, moderator) {
+    if (!topic.closed) return false;
+    if (moderator) return true;
+    return Boolean(viewer.uuid) && viewer.uuid === topic.author_uuid && topic.closed_by === viewer.uuid;
+  }
+  log(action, user, topic, targetId, changes) {
+    (0, import_server3.audit)().record({
+      action: auditAction(action),
+      actor: {
+        type: "user",
+        id: user.uuid,
+        name: user.username
+      },
+      target: {
+        type: "forum",
+        id: String(targetId),
+        name: topic.title
+      },
+      changes: changes || null
+    });
   }
   replyView(id, replies, cards) {
     if (!id) return null;
@@ -2601,6 +2676,11 @@ var ru_default = {
   "mod.forum.admin_title": "\u041D\u0430\u0437\u0432\u0430\u043D\u0438\u0435",
   "mod.forum.admin_write_hint": "\u0427\u0442\u043E\u0431\u044B \u0438\u0433\u0440\u043E\u043A\u0438 \u043C\u043E\u0433\u043B\u0438 \u0441\u043E\u0437\u0434\u0430\u0432\u0430\u0442\u044C \u0442\u0435\u043C\u044B \u0438 \u043E\u0442\u0432\u0435\u0447\u0430\u0442\u044C, \u0432\u044B\u0434\u0430\u0439\u0442\u0435 \u043D\u0443\u0436\u043D\u043E\u0439 \u0440\u043E\u043B\u0438 \u043F\u0440\u0430\u0432\u043E \xAB\u041F\u0438\u0441\u0430\u0442\u044C \u043D\u0430 \u0444\u043E\u0440\u0443\u043C\u0435\xBB \u043D\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0435 \xAB\u0420\u043E\u043B\u0438\xBB.",
   "mod.forum.admin_write_permission": "\u041F\u0440\u0430\u0432\u043E \u043D\u0430 \u0437\u0430\u043F\u0438\u0441\u044C",
+  "mod.forum.audit_class": "\u0424\u043E\u0440\u0443\u043C",
+  "mod.forum.audit_post_delete": "\u0423\u0434\u0430\u043B\u0435\u043D\u0438\u0435 \u0447\u0443\u0436\u043E\u0433\u043E \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F",
+  "mod.forum.audit_post_edit": "\u041F\u0440\u0430\u0432\u043A\u0430 \u0447\u0443\u0436\u043E\u0433\u043E \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F",
+  "mod.forum.audit_topic_close": "\u0417\u0430\u043A\u0440\u044B\u0442\u0438\u0435 \u0438 \u043E\u0442\u043A\u0440\u044B\u0442\u0438\u0435 \u0442\u0435\u043C\u044B",
+  "mod.forum.audit_topic_delete": "\u0423\u0434\u0430\u043B\u0435\u043D\u0438\u0435 \u0447\u0443\u0436\u043E\u0439 \u0442\u0435\u043C\u044B",
   "mod.forum.authors": "\u0423\u0447\u0430\u0441\u0442\u043D\u0438\u043A\u0438",
   "mod.forum.by_author": "\u041E\u0442 {author}",
   "mod.forum.cancel": "\u041E\u0442\u043C\u0435\u043D\u0430",
@@ -2608,6 +2688,8 @@ var ru_default = {
   "mod.forum.closed": "\u0422\u0435\u043C\u0430 \u0437\u0430\u043A\u0440\u044B\u0442\u0430",
   "mod.forum.config_nav_order": "\u041C\u0435\u0441\u0442\u043E \u0432 \u043C\u0435\u043D\u044E",
   "mod.forum.config_nav_order_hint": "\u0427\u0435\u043C \u043C\u0435\u043D\u044C\u0448\u0435 \u0447\u0438\u0441\u043B\u043E, \u0442\u0435\u043C \u043B\u0435\u0432\u0435\u0435 \u043F\u0443\u043D\u043A\u0442 \u0432 \u0448\u0430\u043F\u043A\u0435 \u0441\u0430\u0439\u0442\u0430.",
+  "mod.forum.config_player_close": "\u0418\u0433\u0440\u043E\u043A \u043C\u043E\u0436\u0435\u0442 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0442\u044C \u0441\u0432\u043E\u0438 \u0442\u0435\u043C\u044B",
+  "mod.forum.config_player_close_hint": "\u0412\u044B\u043A\u043B\u044E\u0447\u0438\u0442\u0435, \u0435\u0441\u043B\u0438 \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0442\u044C \u0442\u0435\u043C\u044B \u0432\u043F\u0440\u0430\u0432\u0435 \u0442\u043E\u043B\u044C\u043A\u043E \u043C\u043E\u0434\u0435\u0440\u0430\u0442\u043E\u0440\u044B. \u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u0432\u043E\u044E \u0442\u0435\u043C\u0443 \u0430\u0432\u0442\u043E\u0440 \u043C\u043E\u0436\u0435\u0442, \u0442\u043E\u043B\u044C\u043A\u043E \u0435\u0441\u043B\u0438 \u0437\u0430\u043A\u0440\u044B\u043B \u0435\u0451 \u0441\u0430\u043C.",
   "mod.forum.config_subtitle": "\u041F\u043E\u0434\u043F\u0438\u0441\u044C \u043F\u043E\u0434 \u0437\u0430\u0433\u043E\u043B\u043E\u0432\u043A\u043E\u043C",
   "mod.forum.config_subtitle_hint": "\u041A\u043E\u0440\u043E\u0442\u043A\u0430\u044F \u0441\u0442\u0440\u043E\u043A\u0430 \u043F\u043E\u0434 \u043D\u0430\u0437\u0432\u0430\u043D\u0438\u0435\u043C \u0444\u043E\u0440\u0443\u043C\u0430.",
   "mod.forum.config_title": "\u0417\u0430\u0433\u043E\u043B\u043E\u0432\u043E\u043A \u0444\u043E\u0440\u0443\u043C\u0430",
@@ -2671,12 +2753,16 @@ var ru_default = {
   "mod.forum.unread": "\u041D\u043E\u0432\u043E\u0435",
   "mod.forum.views": "\u041F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u044B",
   "perm.group.mod.forum": "\u0424\u043E\u0440\u0443\u043C",
+  "perm.mod.forum.edit_posts": "\u041F\u0440\u0430\u0432\u0438\u0442\u044C \u0447\u0443\u0436\u0438\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u044F",
+  "perm.mod.forum.edit_posts.hint": "\u0411\u0435\u0437 \u043F\u0440\u0430\u0432\u0430 \u043C\u043E\u0434\u0435\u0440\u0430\u0442\u043E\u0440 \u043C\u043E\u0436\u0435\u0442 \u0443\u0434\u0430\u043B\u0438\u0442\u044C \u0447\u0443\u0436\u043E\u0435 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435, \u043D\u043E \u043D\u0435 \u043F\u0435\u0440\u0435\u043F\u0438\u0441\u0430\u0442\u044C \u0435\u0433\u043E.",
+  "perm.mod.forum.logs": "\u0421\u043C\u043E\u0442\u0440\u0435\u0442\u044C \u0436\u0443\u0440\u043D\u0430\u043B \u0444\u043E\u0440\u0443\u043C\u0430",
+  "perm.mod.forum.logs.hint": "\u0420\u0430\u0437\u0434\u0435\u043B \xAB\u0424\u043E\u0440\u0443\u043C\xBB \u0432 \u0436\u0443\u0440\u043D\u0430\u043B\u0435 \u0434\u0435\u0439\u0441\u0442\u0432\u0438\u0439: \u043F\u0440\u0430\u0432\u043A\u0438 \u0438 \u0443\u0434\u0430\u043B\u0435\u043D\u0438\u044F \u0447\u0443\u0436\u0438\u0445 \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0439 \u0438 \u0442\u0435\u043C.",
   "perm.mod.forum.manage": "\u0423\u043F\u0440\u0430\u0432\u043B\u044F\u0442\u044C \u0444\u043E\u0440\u0443\u043C\u043E\u043C",
   "perm.mod.forum.manage.hint": "\u0420\u0430\u0437\u0434\u0435\u043B\u044B \u0444\u043E\u0440\u0443\u043C\u0430 \u0438 \u0432\u0441\u0451, \u0447\u0442\u043E \u043C\u043E\u0436\u0435\u0442 \u043C\u043E\u0434\u0435\u0440\u0430\u0442\u043E\u0440.",
   "perm.mod.forum.moderate": "\u041C\u043E\u0434\u0435\u0440\u0438\u0440\u043E\u0432\u0430\u0442\u044C \u0444\u043E\u0440\u0443\u043C",
   "perm.mod.forum.moderate.hint": "\u0417\u0430\u043A\u0440\u0435\u043F\u043B\u044F\u0442\u044C, \u0437\u0430\u043A\u0440\u044B\u0432\u0430\u0442\u044C, \u043F\u0435\u0440\u0435\u043D\u043E\u0441\u0438\u0442\u044C \u0438 \u0443\u0434\u0430\u043B\u044F\u0442\u044C \u0432 \u043B\u044E\u0431\u043E\u043C \u0440\u0430\u0437\u0434\u0435\u043B\u0435.",
   "perm.mod.forum.read": "\u0427\u0438\u0442\u0430\u0442\u044C \u0444\u043E\u0440\u0443\u043C",
-  "perm.mod.forum.read.hint": "\u0411\u0435\u0437 \u043F\u0440\u0430\u0432\u0430 \u0437\u0430\u043A\u0440\u044B\u0442\u044B\u043C\u0438 \u043E\u0441\u0442\u0430\u044E\u0442\u0441\u044F \u0442\u043E\u043B\u044C\u043A\u043E \u0440\u0430\u0437\u0434\u0435\u043B\u044B, \u0443 \u043A\u043E\u0442\u043E\u0440\u044B\u0445 \u043E\u043D\u043E \u0443\u043A\u0430\u0437\u0430\u043D\u043E \u043E\u0442\u0434\u0435\u043B\u044C\u043D\u043E.",
+  "perm.mod.forum.read.hint": "\u0411\u0435\u0437 \u043F\u0440\u0430\u0432\u0430 \u0444\u043E\u0440\u0443\u043C \u0437\u0430\u043A\u0440\u044B\u0442 \u0446\u0435\u043B\u0438\u043A\u043E\u043C. \u041E\u0442\u0434\u0435\u043B\u044C\u043D\u044B\u043C \u0440\u0430\u0437\u0434\u0435\u043B\u0430\u043C \u043C\u043E\u0436\u043D\u043E \u0443\u043A\u0430\u0437\u0430\u0442\u044C \u0441\u0432\u043E\u0451 \u043F\u0440\u0430\u0432\u043E \u043D\u0430 \u0447\u0442\u0435\u043D\u0438\u0435.",
   "perm.mod.forum.write": "\u041F\u0438\u0441\u0430\u0442\u044C \u043D\u0430 \u0444\u043E\u0440\u0443\u043C\u0435",
   "perm.mod.forum.write.hint": "\u0421\u043E\u0437\u0434\u0430\u0432\u0430\u0442\u044C \u0442\u0435\u043C\u044B \u0438 \u043E\u0442\u0432\u0435\u0447\u0430\u0442\u044C \u0432 \u043D\u0438\u0445."
 };
@@ -2710,6 +2796,11 @@ var en_default = {
   "mod.forum.admin_title": "Title",
   "mod.forum.admin_write_hint": "To let players start topics and reply, grant the \xABPost on the forum\xBB permission to a role on the \xABRoles\xBB page.",
   "mod.forum.admin_write_permission": "Write permission",
+  "mod.forum.audit_class": "Forum",
+  "mod.forum.audit_post_delete": "Deleted someone else's post",
+  "mod.forum.audit_post_edit": "Edited someone else's post",
+  "mod.forum.audit_topic_close": "Closed or reopened a topic",
+  "mod.forum.audit_topic_delete": "Deleted someone else's topic",
   "mod.forum.authors": "Members",
   "mod.forum.by_author": "By {author}",
   "mod.forum.cancel": "Cancel",
@@ -2717,6 +2808,8 @@ var en_default = {
   "mod.forum.closed": "Topic closed",
   "mod.forum.config_nav_order": "Menu position",
   "mod.forum.config_nav_order_hint": "The lower the number, the further left the item sits in the header.",
+  "mod.forum.config_player_close": "Players may close their own topics",
+  "mod.forum.config_player_close_hint": "Turn off to leave closing to moderators. An author can reopen a topic only if they closed it themselves.",
   "mod.forum.config_subtitle": "Subheading",
   "mod.forum.config_subtitle_hint": "A short line under the forum name.",
   "mod.forum.config_title": "Forum heading",
@@ -2780,12 +2873,16 @@ var en_default = {
   "mod.forum.unread": "New",
   "mod.forum.views": "Views",
   "perm.group.mod.forum": "Forum",
+  "perm.mod.forum.edit_posts": "Edit other people's posts",
+  "perm.mod.forum.edit_posts.hint": "Without it a moderator can delete someone else's post but not rewrite it.",
+  "perm.mod.forum.logs": "View the forum log",
+  "perm.mod.forum.logs.hint": "The \xABForum\xBB section of the action log: edits and deletions of other people's posts and topics.",
   "perm.mod.forum.manage": "Manage the forum",
   "perm.mod.forum.manage.hint": "Forum sections plus everything a moderator can do.",
   "perm.mod.forum.moderate": "Moderate the forum",
   "perm.mod.forum.moderate.hint": "Pin, close, move and delete in any section.",
   "perm.mod.forum.read": "Read the forum",
-  "perm.mod.forum.read.hint": "Without it only sections that ask for it explicitly stay closed.",
+  "perm.mod.forum.read.hint": "Without it the whole forum is closed. Individual sections can require their own read permission.",
   "perm.mod.forum.write": "Post on the forum",
   "perm.mod.forum.write.hint": "Create topics and reply to them."
 };
@@ -2818,8 +2915,45 @@ var index_default = (0, import_server8.defineModule)({
       danger: true
     },
     {
+      key: PERMISSION_EDIT_POSTS,
+      danger: true
+    },
+    {
       key: PERMISSION_MANAGE,
       danger: true
+    },
+    {
+      key: PERMISSION_LOGS,
+      danger: true
+    }
+  ],
+  auditClasses: [
+    {
+      key: AUDIT_CLASS,
+      labelKey: "mod.forum.audit_class",
+      permission: PERMISSION_LOGS
+    }
+  ],
+  auditActions: [
+    {
+      key: AUDIT_POST_EDIT,
+      class: AUDIT_CLASS,
+      labelKey: "mod.forum.audit_post_edit"
+    },
+    {
+      key: AUDIT_POST_DELETE,
+      class: AUDIT_CLASS,
+      labelKey: "mod.forum.audit_post_delete"
+    },
+    {
+      key: AUDIT_TOPIC_CLOSE,
+      class: AUDIT_CLASS,
+      labelKey: "mod.forum.audit_topic_close"
+    },
+    {
+      key: AUDIT_TOPIC_DELETE,
+      class: AUDIT_CLASS,
+      labelKey: "mod.forum.audit_topic_delete"
     }
   ],
   config: [
@@ -2838,6 +2972,13 @@ var index_default = (0, import_server8.defineModule)({
       public: true,
       label: "mod.forum.config_subtitle",
       hint: "mod.forum.config_subtitle_hint"
+    },
+    {
+      key: SETTING_PLAYER_CLOSE,
+      type: "boolean",
+      default: true,
+      label: "mod.forum.config_player_close",
+      hint: "mod.forum.config_player_close_hint"
     },
     {
       key: "nav_order",

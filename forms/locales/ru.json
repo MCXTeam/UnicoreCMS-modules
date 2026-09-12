@@ -133,6 +133,8 @@
   "mod.forms.preset_complaint_summary": "Ник нарушителя, доказательства и описание.",
   "mod.forms.preset_feedback": "Обратная связь",
   "mod.forms.preset_feedback_summary": "Тема, сообщение и почта для ответа.",
+  "mod.forms.preset_partner": "Заявка в партнёрскую программу",
+  "mod.forms.preset_partner_summary": "Площадка, аудитория и план выпусков — для блогеров и стримеров.",
   "mod.forms.preset_staff": "Заявка в команду",
   "mod.forms.preset_staff_summary": "Возраст, сервер, опыт и время в игре.",
   "mod.forms.preset_unban": "Заявка на разбан",

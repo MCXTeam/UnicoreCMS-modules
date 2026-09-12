@@ -1,6 +1,6 @@
 import type { UserRecord } from 'unicore-api'
-import { satisfiesPermission } from 'unicore-api/server'
-import { PERMISSION_MANAGE, PERMISSION_MODERATE, PERMISSION_WRITE } from '../shared/constants'
+import { defaultGrantedPermissions, satisfiesPermission } from 'unicore-api/server'
+import { PERMISSION_EDIT_POSTS, PERMISSION_MANAGE, PERMISSION_MODERATE, PERMISSION_READ, PERMISSION_WRITE } from '../shared/constants'
 import { ForumNode } from './entities/node.entity'
 
 export interface Viewer {
@@ -10,12 +10,12 @@ export interface Viewer {
   superuser: boolean
 }
 
-export const GUEST: Viewer = { uuid: null, perms: [], roles: [], superuser: false }
+export const guest = (): Viewer => ({ uuid: null, perms: defaultGrantedPermissions(), roles: [], superuser: false })
 
 export const viewerOf = (user: UserRecord | null): Viewer =>
   user
     ? { uuid: user.uuid, perms: user.perms || [], roles: user.roles || [], superuser: Boolean(user.superuser) }
-    : GUEST
+    : guest()
 
 export const allows = (viewer: Viewer, permission?: string | null): boolean => {
   if (viewer.superuser) return true
@@ -37,6 +37,7 @@ export const moderates = (viewer: Viewer, branch: ForumNode[]): boolean => {
 
 export const reads = (viewer: Viewer, branch: ForumNode[]): boolean => {
   if (moderates(viewer, branch)) return true
+  if (!allows(viewer, PERMISSION_READ)) return false
 
   return branch.every((node) => !node.hidden && allows(viewer, node.read_permission))
 }
@@ -50,3 +51,6 @@ export const writes = (viewer: Viewer, branch: ForumNode[]): boolean => {
 
   return branch.every((node) => allows(viewer, node.write_permission))
 }
+
+export const editsForeignPosts = (viewer: Viewer, branch: ForumNode[]): boolean =>
+  manages(viewer) || (moderates(viewer, branch) && allows(viewer, PERMISSION_EDIT_POSTS))

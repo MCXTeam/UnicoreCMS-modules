@@ -1304,6 +1304,121 @@ var FORM_PRESETS = [
         required: true
       }
     ]
+  },
+  {
+    id: "partner",
+    name: "mod.forms.preset_partner",
+    summary: "mod.forms.preset_partner_summary",
+    icon: "bx bx-trending-up",
+    admin_icon: "pi pi-chart-line",
+    slug: "partner",
+    title: "\u0417\u0430\u044F\u0432\u043A\u0430 \u0432 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0441\u043A\u0443\u044E \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u0443",
+    description: "\u0420\u0430\u0441\u0441\u043A\u0430\u0436\u0438\u0442\u0435 \u043E \u0441\u0432\u043E\u0435\u0439 \u043F\u043B\u043E\u0449\u0430\u0434\u043A\u0435 \u2014 \u0435\u0441\u043B\u0438 \u043E\u043D\u0430 \u043F\u043E\u0434\u043E\u0439\u0434\u0451\u0442, \u0432\u0430\u043C \u043E\u0442\u043A\u0440\u043E\u044E\u0442 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0441\u043A\u0438\u0439 \u043A\u0430\u0431\u0438\u043D\u0435\u0442.",
+    submit_label: "\u041E\u0442\u043F\u0440\u0430\u0432\u0438\u0442\u044C \u0437\u0430\u044F\u0432\u043A\u0443",
+    success_text: "\u0417\u0430\u044F\u0432\u043A\u0430 \u043F\u0440\u0438\u043D\u044F\u0442\u0430. \u0420\u0435\u0448\u0435\u043D\u0438\u0435 \u043F\u0440\u0438\u0434\u0451\u0442 \u0432 \u0440\u0430\u0437\u0434\u0435\u043B \xAB\u041C\u043E\u0438 \u0437\u0430\u044F\u0432\u043A\u0438\xBB.",
+    auth_only: true,
+    once: false,
+    cooldown_hours: 168,
+    fields: [
+      {
+        key: "platform",
+        type: "select",
+        label: "\u041F\u043B\u043E\u0449\u0430\u0434\u043A\u0430",
+        required: true,
+        half: true,
+        options: [
+          {
+            value: "youtube",
+            label: "YouTube"
+          },
+          {
+            value: "twitch",
+            label: "Twitch"
+          },
+          {
+            value: "tiktok",
+            label: "TikTok"
+          },
+          {
+            value: "telegram",
+            label: "Telegram"
+          },
+          {
+            value: "vk",
+            label: "\u0412\u041A\u043E\u043D\u0442\u0430\u043A\u0442\u0435"
+          },
+          {
+            value: "other",
+            label: "\u0414\u0440\u0443\u0433\u043E\u0435"
+          }
+        ]
+      },
+      {
+        key: "link",
+        type: "url",
+        label: "\u0421\u0441\u044B\u043B\u043A\u0430 \u043D\u0430 \u043A\u0430\u043D\u0430\u043B",
+        hint: "\u041F\u043E\u043B\u043D\u044B\u0439 \u0430\u0434\u0440\u0435\u0441 \u0432\u043C\u0435\u0441\u0442\u0435 \u0441 https://",
+        required: true,
+        half: true
+      },
+      {
+        key: "audience",
+        type: "number",
+        label: "\u041F\u043E\u0434\u043F\u0438\u0441\u0447\u0438\u043A\u043E\u0432",
+        required: true,
+        half: true,
+        settings: {
+          min: 0,
+          max: 1e8
+        }
+      },
+      {
+        key: "views",
+        type: "number",
+        label: "\u041F\u0440\u043E\u0441\u043C\u043E\u0442\u0440\u043E\u0432 \u043D\u0430 \u0440\u043E\u043B\u0438\u043A \u0432 \u0441\u0440\u0435\u0434\u043D\u0435\u043C",
+        required: true,
+        half: true,
+        settings: {
+          min: 0,
+          max: 1e8
+        }
+      },
+      {
+        key: "contact",
+        type: "text",
+        label: "\u0421\u0432\u044F\u0437\u044C",
+        hint: "Discord \u0438\u043B\u0438 Telegram \u2014 \u043F\u043E \u043D\u0435\u043C\u0443 \u0441 \u0432\u0430\u043C\u0438 \u0441\u0432\u044F\u0436\u0443\u0442\u0441\u044F.",
+        required: true,
+        half: true,
+        settings: {
+          max_length: 64
+        }
+      },
+      {
+        key: "server",
+        type: "server",
+        label: "\u0421\u0435\u0440\u0432\u0435\u0440",
+        hint: "\u0421\u0435\u0440\u0432\u0435\u0440, \u043A\u043E\u0442\u043E\u0440\u044B\u0439 \u043F\u043B\u0430\u043D\u0438\u0440\u0443\u0435\u0442\u0435 \u043F\u0440\u043E\u0434\u0432\u0438\u0433\u0430\u0442\u044C.",
+        half: true
+      },
+      {
+        key: "plan",
+        type: "textarea",
+        label: "\u0427\u0442\u043E \u043F\u043B\u0430\u043D\u0438\u0440\u0443\u0435\u0442\u0435 \u0432\u044B\u043F\u0443\u0441\u043A\u0430\u0442\u044C",
+        required: true,
+        settings: {
+          min_length: 60,
+          max_length: 2e3,
+          rows: 5
+        }
+      },
+      {
+        key: "rules",
+        type: "checkbox",
+        label: "\u042F \u043F\u0440\u043E\u0447\u0438\u0442\u0430\u043B \u043F\u0440\u0430\u0432\u0438\u043B\u0430 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0441\u043A\u043E\u0439 \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u044B",
+        required: true
+      }
+    ]
   }
 ];
 var presetById = /* @__PURE__ */ __name((id) => FORM_PRESETS.find((item) => item.id === id), "presetById");
@@ -2862,6 +2977,8 @@ var ru_default = {
   "mod.forms.preset_complaint_summary": "\u041D\u0438\u043A \u043D\u0430\u0440\u0443\u0448\u0438\u0442\u0435\u043B\u044F, \u0434\u043E\u043A\u0430\u0437\u0430\u0442\u0435\u043B\u044C\u0441\u0442\u0432\u0430 \u0438 \u043E\u043F\u0438\u0441\u0430\u043D\u0438\u0435.",
   "mod.forms.preset_feedback": "\u041E\u0431\u0440\u0430\u0442\u043D\u0430\u044F \u0441\u0432\u044F\u0437\u044C",
   "mod.forms.preset_feedback_summary": "\u0422\u0435\u043C\u0430, \u0441\u043E\u043E\u0431\u0449\u0435\u043D\u0438\u0435 \u0438 \u043F\u043E\u0447\u0442\u0430 \u0434\u043B\u044F \u043E\u0442\u0432\u0435\u0442\u0430.",
+  "mod.forms.preset_partner": "\u0417\u0430\u044F\u0432\u043A\u0430 \u0432 \u043F\u0430\u0440\u0442\u043D\u0451\u0440\u0441\u043A\u0443\u044E \u043F\u0440\u043E\u0433\u0440\u0430\u043C\u043C\u0443",
+  "mod.forms.preset_partner_summary": "\u041F\u043B\u043E\u0449\u0430\u0434\u043A\u0430, \u0430\u0443\u0434\u0438\u0442\u043E\u0440\u0438\u044F \u0438 \u043F\u043B\u0430\u043D \u0432\u044B\u043F\u0443\u0441\u043A\u043E\u0432 \u2014 \u0434\u043B\u044F \u0431\u043B\u043E\u0433\u0435\u0440\u043E\u0432 \u0438 \u0441\u0442\u0440\u0438\u043C\u0435\u0440\u043E\u0432.",
   "mod.forms.preset_staff": "\u0417\u0430\u044F\u0432\u043A\u0430 \u0432 \u043A\u043E\u043C\u0430\u043D\u0434\u0443",
   "mod.forms.preset_staff_summary": "\u0412\u043E\u0437\u0440\u0430\u0441\u0442, \u0441\u0435\u0440\u0432\u0435\u0440, \u043E\u043F\u044B\u0442 \u0438 \u0432\u0440\u0435\u043C\u044F \u0432 \u0438\u0433\u0440\u0435.",
   "mod.forms.preset_unban": "\u0417\u0430\u044F\u0432\u043A\u0430 \u043D\u0430 \u0440\u0430\u0437\u0431\u0430\u043D",
@@ -3079,6 +3196,8 @@ var en_default = {
   "mod.forms.preset_complaint_summary": "Offender name, proof and description.",
   "mod.forms.preset_feedback": "Feedback",
   "mod.forms.preset_feedback_summary": "Topic, message and an email to reply to.",
+  "mod.forms.preset_partner": "Partner programme application",
+  "mod.forms.preset_partner_summary": "Channel, audience and content plan \u2014 for bloggers and streamers.",
   "mod.forms.preset_staff": "Staff application",
   "mod.forms.preset_staff_summary": "Age, server, experience and hours in game.",
   "mod.forms.preset_unban": "Unban request",

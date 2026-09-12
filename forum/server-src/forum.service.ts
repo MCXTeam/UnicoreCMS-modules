@@ -2,8 +2,13 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { InjectRepository } from '@nestjs/typeorm'
 import { In, IsNull, Repository } from 'typeorm'
 import type { UserRecord } from 'unicore-api'
-import { core, paginate, Paginated, PaginateQuery } from 'unicore-api/server'
+import { audit, core, modulePrefixes, paginate, Paginated, PaginateQuery } from 'unicore-api/server'
 import {
+  AUDIT_POST_DELETE,
+  AUDIT_POST_EDIT,
+  AUDIT_TOPIC_CLOSE,
+  AUDIT_TOPIC_DELETE,
+  auditAction,
   CATEGORY,
   LATEST_TOPICS_LIMIT,
   LEADERS_LIMIT,
@@ -12,6 +17,7 @@ import {
   REACTION_IDS,
   SEARCH_LIMIT,
   SEARCH_MIN_LENGTH,
+  SETTING_PLAYER_CLOSE,
   TOPICS_PER_PAGE,
 } from '../shared/constants'
 import { ForumNode } from './entities/node.entity'
@@ -20,7 +26,7 @@ import { ForumReaction } from './entities/reaction.entity'
 import { ForumRead } from './entities/read.entity'
 import { ForumTopic } from './entities/topic.entity'
 import { ForumWatermark } from './entities/watermark.entity'
-import { moderates, moderatesEverything, reads, viewerOf, writes, Viewer } from './forum-access'
+import { editsForeignPosts, moderates, moderatesEverything, reads, viewerOf, writes, Viewer } from './forum-access'
 import { NodeInput } from './dto/node.input'
 import { PostInput } from './dto/post.input'
 import { ReactionInput } from './dto/reaction.input'
@@ -48,6 +54,8 @@ interface LastPost {
 }
 
 const EXCERPT_LENGTH = 140
+
+const PLAYER_CLOSE_KEY = `${modulePrefixes('forum').config}${SETTING_PLAYER_CLOSE}`
 
 const plain = (html: string): string =>
   String(html || '')
@@ -228,15 +236,16 @@ export class ForumService {
           reply_to: this.replyView(post.reply_to_id, replies, cards),
           reactions: reactions.get(post.id) || [],
           can: {
-            edit: this.canEditPost(viewer, post, moderator),
-            delete: this.canEditPost(viewer, post, moderator),
+            edit: this.canEditPost(viewer, post, branch),
+            delete: this.canRemovePost(viewer, post, moderator),
           },
         })),
       },
       can: {
         reply: !topic.closed && writes(viewer, branch),
         moderate: moderator,
-        close: moderator || (viewer.uuid === topic.author_uuid && !topic.closed),
+        close: await this.canCloseTopic(viewer, topic, moderator),
+        open: this.canOpenTopic(viewer, topic, moderator),
       },
     }
   }
@@ -317,26 +326,30 @@ export class ForumService {
 
   async editPost(id: number, user: UserRecord, input: PostInput) {
     const viewer = viewerOf(user)
-    const { post, branch } = await this.locate(id, viewer)
-    const moderator = moderates(viewer, branch)
+    const { post, topic, branch } = await this.locate(id, viewer)
 
-    if (!this.canEditPost(viewer, post, moderator)) throw new ForbiddenException()
+    if (!this.canEditPost(viewer, post, branch)) throw new ForbiddenException()
 
     await this.posts.update({ id: post.id }, { content: input.content, edited_at: new Date(), edited_by: user.uuid })
+
+    if (post.author_uuid !== user.uuid)
+      this.log(AUDIT_POST_EDIT, user, topic, post.id, { content: [excerpt(post.content), excerpt(input.content)] })
 
     return { id: post.id }
   }
 
   async removePost(id: number, user: UserRecord) {
     const viewer = viewerOf(user)
-    const { post, branch } = await this.locate(id, viewer)
+    const { post, topic, branch } = await this.locate(id, viewer)
     const moderator = moderates(viewer, branch)
 
-    if (!this.canEditPost(viewer, post, moderator)) throw new ForbiddenException()
+    if (!this.canRemovePost(viewer, post, moderator)) throw new ForbiddenException()
     if (post.first) throw new BadRequestException('Первое сообщение удаляется вместе с темой')
 
     await this.posts.update({ id: post.id }, { deleted_at: new Date(), deleted_by: user.uuid })
     await this.topics.decrement({ id: post.topic_id }, 'posts_count', 1)
+
+    if (post.author_uuid !== user.uuid) this.log(AUDIT_POST_DELETE, user, topic, post.id)
 
     return { id: post.id }
   }
@@ -374,7 +387,16 @@ export class ForumService {
 
     const patch: Partial<ForumTopic> = {}
 
-    if (input.closed !== undefined) patch.closed = input.closed
+    if (input.closed !== undefined && input.closed !== topic.closed) {
+      if (input.closed && !(await this.canCloseTopic(viewer, topic, moderator))) throw new ForbiddenException()
+      if (!input.closed && !this.canOpenTopic(viewer, topic, moderator)) throw new ForbiddenException()
+
+      patch.closed = input.closed
+      patch.closed_by = input.closed ? viewer.uuid : null
+
+      if (moderator) this.log(AUDIT_TOPIC_CLOSE, user, topic, topic.id, { closed: [topic.closed, input.closed] })
+    }
+
     if (input.title !== undefined && (moderator || author)) patch.title = input.title
 
     if (input.pinned !== undefined) {
@@ -414,6 +436,8 @@ export class ForumService {
     if (!moderates(viewer, branch) && viewer.uuid !== topic.author_uuid) throw new ForbiddenException()
 
     await this.topics.update({ id: topic.id }, { deleted_at: new Date() })
+
+    if (topic.author_uuid !== user.uuid) this.log(AUDIT_TOPIC_DELETE, user, topic, topic.id)
 
     for (const item of branch)
       await this.nodes.update({ id: item.id }, {
@@ -613,11 +637,51 @@ export class ForumService {
     return { post, topic, node, branch }
   }
 
-  private canEditPost(viewer: Viewer, post: ForumPost, moderator: boolean): boolean {
+  private canEditPost(viewer: Viewer, post: ForumPost, branch: ForumNode[]): boolean {
+    if (viewer.uuid && viewer.uuid === post.author_uuid) return !post.deleted_at
+
+    return editsForeignPosts(viewer, branch)
+  }
+
+  private canRemovePost(viewer: Viewer, post: ForumPost, moderator: boolean): boolean {
     if (moderator) return true
     if (!viewer.uuid || viewer.uuid !== post.author_uuid) return false
 
     return !post.deleted_at
+  }
+
+  private playerClose(): Promise<boolean> {
+    return core().config.getBoolean(PLAYER_CLOSE_KEY, true)
+  }
+
+  private async canCloseTopic(viewer: Viewer, topic: ForumTopic, moderator: boolean): Promise<boolean> {
+    if (topic.closed) return false
+    if (moderator) return true
+    if (viewer.uuid !== topic.author_uuid) return false
+
+    return this.playerClose()
+  }
+
+  private canOpenTopic(viewer: Viewer, topic: ForumTopic, moderator: boolean): boolean {
+    if (!topic.closed) return false
+    if (moderator) return true
+
+    return Boolean(viewer.uuid) && viewer.uuid === topic.author_uuid && topic.closed_by === viewer.uuid
+  }
+
+  private log(
+    action: string,
+    user: UserRecord,
+    topic: ForumTopic,
+    targetId: number | string,
+    changes?: Record<string, [unknown, unknown]>,
+  ): void {
+    audit().record({
+      action: auditAction(action),
+      actor: { type: 'user', id: user.uuid, name: user.username },
+      target: { type: 'forum', id: String(targetId), name: topic.title },
+      changes: changes || null,
+    })
   }
 
   private replyView(id: number | null, replies: ForumPost[], cards: Map<string, UserCard>) {
