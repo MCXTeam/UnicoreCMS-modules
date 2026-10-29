@@ -208,6 +208,20 @@ export class TeamService {
       if (!server || pinned.has(member.uuid)) place(GLOBAL, globalTitle, null, member)
     }
 
+    const globalSection = sections.get(GLOBAL)
+
+    if (globalSection)
+      globalSection.members.sort((left, right) => {
+        const leftIndex = pinned.get(left.uuid) ?? null
+        const rightIndex = pinned.get(right.uuid) ?? null
+
+        if (leftIndex === rightIndex) return 0
+        if (leftIndex === null) return 1
+        if (rightIndex === null) return -1
+
+        return leftIndex - rightIndex
+      })
+
     const order = [...servers.keys()]
     const rank = (section: TeamSection) => (section.id === GLOBAL ? -1 : order.indexOf(section.id))
 
@@ -258,10 +272,10 @@ export class TeamService {
     return members.slice().sort((left, right) => right.priority - left.priority || left.username.localeCompare(right.username))
   }
 
-  private async globalMembers(): Promise<Set<string>> {
+  private async globalMembers(): Promise<Map<string, number | null>> {
     const rows = await this.memberCategories.find({ where: { categoryId: GLOBAL_CATEGORY_ID } })
 
-    return new Set(rows.map((row) => row.userUuid))
+    return new Map(rows.map((row) => [row.userUuid, row.sortIndex ?? null]))
   }
 
   private async noteMap(): Promise<Map<string, TeamNote>> {

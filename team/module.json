@@ -8,7 +8,7 @@
     "ru": "Страница с составом команды: группы, участники, роли и описания",
     "en": "A page with the project team: groups, members, roles and notes"
   },
-  "version": "1.2.0",
+  "version": "1.2.1",
   "unicoreApi": "^1.4.0",
   "author": "UnicoreCMS",
   "license": "MIT",

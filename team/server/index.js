@@ -558,6 +558,15 @@ var _TeamService = class _TeamService {
       if (server) place(server.id, server.name, server.icon || null, member);
       if (!server || pinned.has(member.uuid)) place(GLOBAL, globalTitle, null, member);
     }
+    const globalSection = sections.get(GLOBAL);
+    if (globalSection) globalSection.members.sort((left, right) => {
+      const leftIndex = pinned.get(left.uuid) ?? null;
+      const rightIndex = pinned.get(right.uuid) ?? null;
+      if (leftIndex === rightIndex) return 0;
+      if (leftIndex === null) return 1;
+      if (rightIndex === null) return -1;
+      return leftIndex - rightIndex;
+    });
     const order = [
       ...servers.keys()
     ];
@@ -613,7 +622,10 @@ var _TeamService = class _TeamService {
         categoryId: GLOBAL_CATEGORY_ID
       }
     });
-    return new Set(rows.map((row) => row.userUuid));
+    return new Map(rows.map((row) => [
+      row.userUuid,
+      row.sortIndex ?? null
+    ]));
   }
   async noteMap() {
     const rows = await this.notes.find();
